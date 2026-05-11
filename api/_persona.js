@@ -1,7 +1,27 @@
+import fs from "node:fs";
+import path from "node:path";
+
+function readFileSafe(filePath) {
+  if (!filePath) return "";
+  try {
+    return fs.readFileSync(filePath, "utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
+function resolveSection(envInline, envFile) {
+  const inline = (process.env[envInline] || "").trim();
+  if (inline) return inline;
+  const filePath = process.env[envFile];
+  if (filePath) return readFileSafe(filePath);
+  return "";
+}
+
 export function loadPersonaFromEnv() {
-  const identity = (process.env.OPENCLAW_IDENTITY_MD || "").trim();
-  const soul = (process.env.OPENCLAW_SOUL_MD || "").trim();
-  const memory = (process.env.OPENCLAW_MEMORY_MD || "").trim();
+  const identity = resolveSection("OPENCLAW_IDENTITY_MD", "OPENCLAW_IDENTITY_FILE");
+  const soul = resolveSection("OPENCLAW_SOUL_MD", "OPENCLAW_SOUL_FILE");
+  const memory = resolveSection("OPENCLAW_MEMORY_MD", "OPENCLAW_MEMORY_FILE");
 
   return {
     identity,
