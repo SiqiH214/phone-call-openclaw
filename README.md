@@ -25,7 +25,7 @@ Open the Vite URL printed by the terminal. By default, the local server expects 
 2. Add your OpenClaw gateway URL/token, or run the site on the same machine as OpenClaw and use the local gateway defaults.
 3. Replace the default avatar with your own image or video.
 4. Add a Fal key if you want image/video/music artifact generation.
-5. Add persona/memory env vars if your OpenClaw agent does not already provide them locally.
+5. Add persona/style/memory env vars if your OpenClaw agent does not already provide them locally.
 
 ## OpenAI API
 
@@ -128,6 +128,8 @@ FAL_MUSIC_MODEL=fal-ai/minimax-music/v2.6
 
 If you skip `FAL_KEY`, text/code/html artifacts still work, but image/video/music generation will return a setup error.
 
+Image and video artifacts support reference media. If the user uploads an image/video, the site sends that as the reference. If camera or screen share is on, the site can capture the current frame and pass it as a reference image, so prompts like "make an avatar based on my camera" can use the camera snapshot.
+
 ## Deploy On Vercel
 
 1. Fork or clone this repository.
@@ -139,13 +141,14 @@ If you skip `FAL_KEY`, text/code/html artifacts still work, but image/video/musi
 
 ## Persona And Memory
 
-The server can load OpenClaw persona context from environment variables:
+The server can load OpenClaw persona, style, and memory context from environment variables:
 
 - `OPENCLAW_IDENTITY_MD`
 - `OPENCLAW_SOUL_MD`
+- `OPENCLAW_STYLE_MD`
 - `OPENCLAW_MEMORY_MD`
 
-Local OpenClaw installs can also provide `/root/.openclaw/workspace/IDENTITY.md`, `/root/.openclaw/workspace/SOUL.md`, and markdown files under `/root/.openclaw/workspace/memory`.
+Local OpenClaw installs can also provide `/root/.openclaw/workspace/IDENTITY.md`, `/root/.openclaw/workspace/SOUL.md`, `/root/.openclaw/workspace/STYLE.md`, and markdown files under `/root/.openclaw/workspace/memory`.
 
 ## Security Notes
 

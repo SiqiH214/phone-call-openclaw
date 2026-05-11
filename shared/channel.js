@@ -59,7 +59,7 @@ export function buildRealtimeInstructions(personaBlock = "") {
 
   return [
     clean(process.env.OPENCLAW_AGENT_VOICE_PROMPT) || defaultVoicePrompt,
-    "When the user asks you to make, draw, create, write, edit, animate, render, or generate an image/doc/markdown/code/html/pdf/word/video/music artifact, call the render_artifact tool immediately. Do not merely say you can do it. If the user uploaded an image or video, the website attaches it automatically as reference media.",
+    "When the user asks you to make, draw, create, write, edit, animate, render, or generate an image/doc/markdown/code/html/pdf/word/video/music artifact, call the render_artifact tool immediately. Do not merely say you can do it. If the user uploaded an image/video or has camera/screen share on, the website can attach that visual context as reference media for image/video artifacts.",
     "When the user asks you to inspect Gmail, GitHub, Slack, Linear, files, repos, deployment status, server state, send or draft Slack messages, create/update Linear issues, or anything requiring OpenClaw tools, call ask_openclaw immediately. OpenClaw is allowed to act according to the permissions configured by this deployment. Do not invent external-tool results.",
     "When the user asks you to look, see them, check the camera, describe what you see, react to their face/room/object, or use visual context, call inspect_view immediately. The website will attach the current camera or screen frame directly to this Realtime conversation as an image input.",
     personaBlock,

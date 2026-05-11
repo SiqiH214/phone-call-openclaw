@@ -121,6 +121,8 @@ export function App() {
     setArtifactCollapsed(false);
 
     try {
+      const visualReference = await captureArtifactReference(kind);
+      const uploadedImage = uploadedMedia?.type?.startsWith("image/") ? uploadedMedia.dataUrl : null;
       const response = await fetch("/api/artifacts/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,7 +132,8 @@ export function App() {
           mediaDataUrl: uploadedMedia?.dataUrl || null,
           mediaType: uploadedMedia?.type || null,
           mediaName: uploadedMedia?.name || null,
-          imageDataUrl: uploadedMedia?.type?.startsWith("image/") ? uploadedMedia.dataUrl : null,
+          imageDataUrl: uploadedImage || visualReference,
+          referenceSource: uploadedImage ? "upload" : visualReference ? "camera_or_screen" : null,
         }),
       });
       const payload = await response.json();
@@ -383,6 +386,12 @@ export function App() {
 
   async function captureVisualFrame() {
     return await captureFrame(cameraVideoRef.current) || await captureFrame(screenVideoRef.current);
+  }
+
+  async function captureArtifactReference(kind) {
+    if (!["image", "video"].includes(kind)) return null;
+    if (!cameraStream && !screenStream) return null;
+    return captureVisualFrame();
   }
 
   async function captureScreenFrame() {
