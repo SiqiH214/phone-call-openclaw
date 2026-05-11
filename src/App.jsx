@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, Eye, ImagePlus, MonitorDown, Phone, PhoneOff } from "lucide-react";
+import { Camera, ImagePlus, MessageCircle, MonitorDown, Phone, PhoneOff, ScreenShare } from "lucide-react";
 import { startRealtimeCall } from "./realtime.js";
 
 const HISTORY_KEY = "phone-call-openclaw-session-history:v1";
@@ -17,6 +17,7 @@ export function App() {
   const [screenStream, setScreenStream] = useState(null);
   const [cameraStream, setCameraStream] = useState(null);
   const [uploadedMedia, setUploadedMedia] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const screenVideoRef = useRef(null);
   const cameraVideoRef = useRef(null);
   const uploadInputRef = useRef(null);
@@ -25,6 +26,7 @@ export function App() {
   const live = ["minting", "requesting microphone", "connecting", "live"].includes(callState);
   const memoryReady = persona?.connected?.identity && persona?.connected?.soul && persona?.connected?.memory;
   const agentName = server?.config?.agentName || "OpenClaw";
+  const terminalStatus = formatTerminalStatus({ callState, server, memoryReady, screenStream, cameraStream, uploadedMedia });
 
   useEffect(() => {
     Promise.all([
@@ -114,7 +116,7 @@ export function App() {
     if (event.name !== "render_artifact") return;
 
     const kind = args.kind || "image";
-    const prompt = args.prompt || "Make an artifact from this conversation.";
+    const prompt = normalizeArtifactPrompt(kind, args.prompt);
     setArtifact({ kind, status: "loading", prompt, createdAt: Date.now() });
     setArtifactCollapsed(false);
 
@@ -311,7 +313,7 @@ export function App() {
   }
 
   async function toggleScreenShare(event) {
-    event.stopPropagation();
+    event?.stopPropagation();
     if (screenStream) {
       screenStream.getTracks().forEach((track) => track.stop());
       setScreenStream(null);
@@ -333,7 +335,7 @@ export function App() {
   }
 
   async function toggleCamera(event) {
-    event.stopPropagation();
+    event?.stopPropagation();
     if (cameraStream) {
       cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
@@ -399,9 +401,7 @@ export function App() {
       <div className="ambient-field" aria-hidden="true" />
 
       <div className="tiny-status" aria-label="Connection status">
-        <span>{server?.openclaw?.ok ? "openclaw" : "connecting"}</span>
-        <span>{memoryReady ? "memory" : "memory pending"}</span>
-        <button onClick={toggleScreenShare}><Eye size={12} strokeWidth={2.2} />{screenStream ? "seeing" : "share view"}</button>
+        <span className={server?.openclaw?.ok && memoryReady ? "is-ready" : ""}>{terminalStatus}</span>
         <input
           ref={uploadInputRef}
           className="hidden-upload"
@@ -420,20 +420,33 @@ export function App() {
           )}
         </picture>
         {live ? <span className="speech">{speechText}</span> : null}
-        <div className="call-controls">
-          <button className="media-pill" onClick={toggleCamera} aria-label={cameraStream ? "Turn camera off" : "Turn camera on"}>
-            <Camera size={18} strokeWidth={2.2} />
-            <span>{cameraStream ? "camera on" : "camera"}</span>
-          </button>
+        <div className={`call-controls ${live ? "is-expanded" : "is-idle"}`}>
+          {live ? (
+            <>
+              <button className={`media-pill ${screenStream ? "is-active" : ""}`} onClick={toggleScreenShare} aria-label={screenStream ? "Stop sharing screen" : "Share screen"}>
+                <ScreenShare size={18} strokeWidth={2.2} />
+                <span>{screenStream ? "screen on" : "share screen"}</span>
+              </button>
+              <button className={`media-pill ${cameraStream ? "is-active" : ""}`} onClick={toggleCamera} aria-label={cameraStream ? "Turn camera off" : "Open camera"}>
+                <Camera size={18} strokeWidth={2.2} />
+                <span>{cameraStream ? "camera on" : "open camera"}</span>
+              </button>
+              <button className="media-pill" onClick={(event) => { event.stopPropagation(); uploadInputRef.current?.click(); }} aria-label="Send media">
+                <ImagePlus size={18} strokeWidth={2.2} />
+                <span>{uploadedMedia ? "media sent" : "send media"}</span>
+              </button>
+              <button className={`media-pill ${chatOpen ? "is-active" : ""}`} onClick={() => setChatOpen((value) => !value)} aria-label="Open chat">
+                <MessageCircle size={18} strokeWidth={2.2} />
+                <span>chat</span>
+              </button>
+            </>
+          ) : null}
           <button className="call-button" onClick={toggleCall} aria-label={live ? "End voice call" : "Start voice call"}>
             {live ? <PhoneOff size={20} strokeWidth={2.4} /> : <Phone size={20} strokeWidth={2.6} />}
             <span>{live ? "END" : "CALL"}</span>
           </button>
-          <button className="media-pill" onClick={(event) => { event.stopPropagation(); uploadInputRef.current?.click(); }} aria-label="Upload reference media">
-            <ImagePlus size={18} strokeWidth={2.2} />
-            <span>{mediaUploadLabel(uploadedMedia)}</span>
-          </button>
         </div>
+        {uploadedMedia ? <div className="media-presence">{uploadedMedia.name}</div> : null}
         {live ? (
           <div className="voice-activity scene-activity" aria-hidden="true">
             <i />
@@ -453,14 +466,14 @@ export function App() {
             <video ref={attachCameraPreview} muted playsInline autoPlay />
           </div>
         ) : null}
-        {live && transcript.length ? (
+        {live && (transcript.length || chatOpen) ? (
           <div className="call-transcript" aria-label="Live call transcript">
-            {transcript.slice(0, 4).map((item) => (
+            {transcript.length ? transcript.slice(0, 4).map((item) => (
               <p key={item.id} className={item.role}>
                 <span>{item.role === "agent" ? agentName : item.role}</span>
                 {item.text}
               </p>
-            ))}
+            )) : <p className="system"><span>chat</span>initialized</p>}
           </div>
         ) : null}
       </section>
@@ -638,6 +651,32 @@ function mediaUploadLabel(media) {
   return "file ready";
 }
 
+function formatTerminalStatus({ callState, server, memoryReady, screenStream, cameraStream, uploadedMedia }) {
+  const voice = callState === "idle" ? "idle" : callState === "live" ? "live" : callState.replace(/\s+/g, "-");
+  const core = server?.openclaw?.ok ? "core:ok" : "core:init";
+  const memory = memoryReady ? "mem:ok" : "mem:wait";
+  const devices = [
+    screenStream ? "screen" : "",
+    cameraStream ? "cam" : "",
+    uploadedMedia ? "media" : "",
+  ].filter(Boolean);
+  return `init ${core} / voice:${voice} / ${memory}${devices.length ? ` / ${devices.join("+")}` : ""}`;
+}
+
+function normalizeArtifactPrompt(kind, prompt = "") {
+  const clean = String(prompt || "").replace(/\s+/g, " ").trim();
+  if (!clean || /^make an artifact from this conversation\.?$/i.test(clean)) {
+    if (kind === "image") {
+      return "Create a polished editorial visual artifact for this live agent call: abstract cinematic interface poster, dark Nova-style palette, subtle lavender accent, refined grain texture, clean composition, no readable text.";
+    }
+    if (kind === "html") {
+      return "Create a minimal standalone HTML artifact for this live agent call with elegant typography, subtle dark interface styling, and one clear content section.";
+    }
+    return "Create a concise, polished artifact from this live agent conversation.";
+  }
+  return clean;
+}
+
 function artifactToolInstruction(payload) {
   if (payload?.status === "error") {
     return "Briefly tell the user the artifact hit an error. Do not over-explain.";
@@ -653,7 +692,10 @@ function friendlyArtifactError(error) {
   if (error.includes("verified") || error.includes("Verify Organization")) {
     return "image model access is not ready on this account. i tried the fallback too, but generation is blocked right now.";
   }
-  return error;
+  if (/expected output|unsafe content|incompatible|missing attachments|cannot be processed/i.test(error)) {
+    return "generation did not complete for that prompt. try a more specific visual prompt, or upload a reference and ask me to edit it.";
+  }
+  return String(error).length > 180 ? `${String(error).slice(0, 177)}...` : error;
 }
 
 function loadHistory() {
