@@ -424,9 +424,9 @@ export function App() {
       <section className="agent-stage" aria-label={`${agentName} voice call`}>
         <picture>
           {live ? (
-            <video className="agent-scene" src="/girl-agent-kling.mp4" poster="/girl-agent-main.png" autoPlay muted loop playsInline aria-hidden="true" />
+            <video className="agent-scene" src="/avatar-loop.mp4" poster="/avatar.png" autoPlay muted loop playsInline aria-hidden="true" />
           ) : (
-            <img className="agent-scene" src="/girl-agent-main.png" alt="" aria-hidden="true" />
+            <img className="agent-scene" src="/avatar.png" alt="" aria-hidden="true" />
           )}
         </picture>
         {live ? <span className="speech">{speechText}</span> : null}

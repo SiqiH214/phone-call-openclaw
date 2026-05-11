@@ -1,13 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const localPersonaPaths = {
-  identity: "/root/.openclaw/workspace/IDENTITY.md",
-  soul: "/root/.openclaw/workspace/SOUL.md",
-  memory: "/root/.openclaw/workspace/memory",
-};
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
 
 function readFileSafe(filePath) {
+  if (!filePath) return "";
   try {
     return fs.readFileSync(filePath, "utf8").trim();
   } catch {
@@ -16,6 +15,7 @@ function readFileSafe(filePath) {
 }
 
 function readLatestMemory(memoryDir) {
+  if (!memoryDir) return "";
   try {
     const files = fs
       .readdirSync(memoryDir)
@@ -28,10 +28,37 @@ function readLatestMemory(memoryDir) {
   }
 }
 
+function resolveSection(envInline, envFile, repoFallback) {
+  const inline = (process.env[envInline] || "").trim();
+  if (inline) return inline;
+  const filePath = process.env[envFile];
+  if (filePath) {
+    const fromFile = readFileSafe(filePath);
+    if (fromFile) return fromFile;
+  }
+  return readFileSafe(path.join(repoRoot, repoFallback));
+}
+
+function resolveMemory() {
+  const inline = (process.env.OPENCLAW_MEMORY_MD || "").trim();
+  if (inline) return inline;
+  const filePath = process.env.OPENCLAW_MEMORY_FILE;
+  if (filePath) {
+    const fromFile = readFileSafe(filePath);
+    if (fromFile) return fromFile;
+  }
+  const memoryDir = process.env.OPENCLAW_MEMORY_DIR;
+  if (memoryDir) {
+    const fromDir = readLatestMemory(memoryDir);
+    if (fromDir) return fromDir;
+  }
+  return readFileSafe(path.join(repoRoot, "persona", "MEMORY.md"));
+}
+
 export function loadPersona() {
-  const identity = process.env.OPENCLAW_IDENTITY_MD || readFileSafe(localPersonaPaths.identity);
-  const soul = process.env.OPENCLAW_SOUL_MD || readFileSafe(localPersonaPaths.soul);
-  const memory = process.env.OPENCLAW_MEMORY_MD || readLatestMemory(localPersonaPaths.memory);
+  const identity = resolveSection("OPENCLAW_IDENTITY_MD", "OPENCLAW_IDENTITY_FILE", "persona/IDENTITY.md");
+  const soul = resolveSection("OPENCLAW_SOUL_MD", "OPENCLAW_SOUL_FILE", "persona/SOUL.md");
+  const memory = resolveMemory();
 
   return {
     identity,
