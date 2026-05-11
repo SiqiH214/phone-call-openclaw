@@ -6,6 +6,9 @@ export const serviceName = "phone-call-openclaw";
 export const appName = clean(process.env.PUBLIC_APP_NAME || process.env.APP_NAME) || "Phone Call OpenClaw";
 export const agentName = clean(process.env.OPENCLAW_AGENT_NAME) || "OpenClaw";
 export const ownerName = clean(process.env.OPENCLAW_OWNER_NAME) || "the user";
+export const agentAvatarImageUrl = clean(process.env.PUBLIC_AGENT_AVATAR_IMAGE_URL) || "/girl-agent-main.png";
+export const agentAvatarVideoUrl = clean(process.env.PUBLIC_AGENT_AVATAR_VIDEO_URL) || "/girl-agent-kling.mp4";
+export const agentAvatarInitials = clean(process.env.PUBLIC_AGENT_AVATAR_INITIALS) || initialsFor(agentName);
 export const realtimeModel = clean(process.env.OPENAI_REALTIME_MODEL) || "gpt-realtime-2";
 export const realtimeVoice = clean(process.env.OPENAI_REALTIME_VOICE) || "marin";
 export const openclawPublicUrl = clean(process.env.OPENCLAW_PUBLIC_URL);
@@ -31,6 +34,9 @@ export function publicChannelConfig() {
     appName,
     agentName,
     ownerName,
+    agentAvatarImageUrl,
+    agentAvatarVideoUrl,
+    agentAvatarInitials,
     callPermissions: callPermissionPreset || "all",
   };
 }
@@ -81,4 +87,10 @@ function normalizeScopes(scopes) {
     .map((scope) => clean(scope))
     .filter(Boolean)
     .filter((scope, index, all) => all.indexOf(scope) === index);
+}
+
+function initialsFor(value) {
+  const words = clean(value).split(" ").filter(Boolean);
+  if (words.length === 0) return "AI";
+  return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
 }

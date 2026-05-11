@@ -25,6 +25,8 @@ export function App() {
   const live = ["minting", "requesting microphone", "connecting", "live"].includes(callState);
   const memoryReady = persona?.connected?.identity && persona?.connected?.soul && persona?.connected?.memory;
   const agentName = server?.config?.agentName || "OpenClaw";
+  const avatarImageUrl = server?.config?.agentAvatarImageUrl || "/girl-agent-main.png";
+  const avatarVideoUrl = server?.config?.agentAvatarVideoUrl || "/girl-agent-kling.mp4";
 
   useEffect(() => {
     Promise.all([
@@ -423,10 +425,10 @@ export function App() {
 
       <section className="agent-stage" aria-label={`${agentName} voice call`}>
         <picture>
-          {live ? (
-            <video className="agent-scene" src="/girl-agent-kling.mp4" poster="/girl-agent-main.png" autoPlay muted loop playsInline aria-hidden="true" />
+          {live && avatarVideoUrl ? (
+            <video className="agent-scene" src={avatarVideoUrl} poster={avatarImageUrl} autoPlay muted loop playsInline aria-hidden="true" />
           ) : (
-            <img className="agent-scene" src="/girl-agent-main.png" alt="" aria-hidden="true" />
+            <img className="agent-scene" src={avatarImageUrl} alt="" aria-hidden="true" />
           )}
         </picture>
         {live ? <span className="speech">{speechText}</span> : null}

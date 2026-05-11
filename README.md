@@ -7,7 +7,7 @@ A self-hostable realtime voice-call website for an OpenClaw agent. The browser t
 - A Vite/React call surface with microphone, camera/screen inspection, transcript, uploads, and artifact panel.
 - Vercel API routes for OpenAI Realtime token minting and OpenClaw gateway status/actions.
 - Local Express server for running the same app against a local OpenClaw gateway.
-- Configurable agent name, owner name, voice prompt, Realtime model/voice, OpenClaw URL, and artifact models.
+- Configurable agent name, owner name, avatar media, voice prompt, Realtime model/voice, OpenClaw URL, and artifact models.
 
 ## Quick Start
 
@@ -19,28 +19,68 @@ npm run dev
 
 Open the Vite URL printed by the terminal. By default, the local server expects OpenClaw gateway access at `http://127.0.0.1:18789`.
 
-## Required Environment
+## Setup Checklist
+
+1. Add an OpenAI API key for Realtime voice calls.
+2. Add your OpenClaw gateway URL/token, or run the site on the same machine as OpenClaw and use the local gateway defaults.
+3. Replace the default avatar with your own image or video.
+4. Add a Fal key if you want image/video/music artifact generation.
+5. Add persona/memory env vars if your OpenClaw agent does not already provide them locally.
+
+## OpenAI API
 
 ```bash
 OPENAI_API_KEY=sk-proj-your-key-here
+OPENAI_REALTIME_MODEL=gpt-realtime-2
+OPENAI_REALTIME_VOICE=marin
+```
+
+The server mints short-lived Realtime client secrets, so the browser never receives your standard OpenAI API key.
+
+## Wire Your OpenClaw
+
+If this site runs beside an existing OpenClaw agent, the local Express server defaults to:
+
+```bash
+OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+```
+
+It can also read the gateway token from `/root/.openclaw/openclaw.json` when available. Otherwise set:
+
+```bash
 OPENCLAW_GATEWAY_TOKEN=your-openclaw-gateway-token
 ```
 
-For deployed sites, set:
+For deployed sites, expose your OpenClaw gateway over HTTPS and set:
 
 ```bash
 OPENCLAW_PUBLIC_URL=https://your-stable-openclaw-gateway.example
+OPENCLAW_GATEWAY_TOKEN=your-openclaw-gateway-token
 PUBLIC_APP_ORIGIN=https://your-vercel-site.example
 OPENCLAW_GATEWAY_ORIGIN=https://your-vercel-site.example
 ```
 
-Optional branding/personality:
+If your OpenClaw agent already has OpenAI/Fal keys and persona files, you can reuse those by setting the same values in this web app's environment, or by running locally where the OpenClaw config/persona files are readable.
+
+## Avatar And Branding
+
+Put your avatar assets in `public/`, then point the env vars at them. For example:
 
 ```bash
 PUBLIC_APP_NAME=Phone Call OpenClaw
-OPENCLAW_AGENT_NAME=OpenClaw
-OPENCLAW_OWNER_NAME=the user
-OPENCLAW_AGENT_VOICE_PROMPT="You are ..."
+OPENCLAW_AGENT_NAME=Ada
+OPENCLAW_OWNER_NAME=Jane
+PUBLIC_AGENT_AVATAR_IMAGE_URL=/avatar.png
+PUBLIC_AGENT_AVATAR_VIDEO_URL=/avatar-live.mp4
+PUBLIC_AGENT_AVATAR_INITIALS=AD
+```
+
+`PUBLIC_AGENT_AVATAR_IMAGE_URL` is used when idle and as the video poster. `PUBLIC_AGENT_AVATAR_VIDEO_URL` is used while the call is live. These can be local `/file.ext` paths from `public/` or full hosted URLs.
+
+Optional voice/personality override:
+
+```bash
+OPENCLAW_AGENT_VOICE_PROMPT="You are Ada, Jane's concise and warm OpenClaw voice agent..."
 ```
 
 ## Phone Call Permissions
@@ -75,13 +115,18 @@ If the agent says it cannot see the camera:
 - Make sure the user clicked the camera button and granted browser camera permission.
 - Ask the agent to "look at my camera" after the preview has appeared.
 
-Optional artifact generation:
+## Fal API For Artifacts
+
+Fal is optional. Add it when you want the voice agent to render images, videos, or music from the artifact panel:
 
 ```bash
 FAL_KEY=your-fal-key
 FAL_IMAGE_MODEL=fal-ai/nano-banana-2
 FAL_VIDEO_MODEL=bytedance/seedance-2.0/fast/text-to-video
+FAL_MUSIC_MODEL=fal-ai/minimax-music/v2.6
 ```
+
+If you skip `FAL_KEY`, text/code/html artifacts still work, but image/video/music generation will return a setup error.
 
 ## Deploy On Vercel
 
@@ -90,6 +135,7 @@ FAL_VIDEO_MODEL=bytedance/seedance-2.0/fast/text-to-video
 3. Add the environment variables from `.env.example`.
 4. Point `OPENCLAW_PUBLIC_URL` at an HTTPS-accessible OpenClaw gateway.
 5. Set `PUBLIC_APP_ORIGIN` and `OPENCLAW_GATEWAY_ORIGIN` to your deployed site URL.
+6. Upload your avatar assets into `public/` before deploy, or use hosted asset URLs.
 
 ## Persona And Memory
 
