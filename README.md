@@ -68,13 +68,11 @@ The current full preset expands to `operator.admin`, `operator.read`, `operator.
 
 ## Camera And Screen Vision
 
-The browser does not continuously stream camera video to OpenClaw. When the user asks the voice agent to look, see, inspect the camera, or inspect the shared screen, the site captures a single frame and sends it to the server for vision description before forwarding the result to OpenClaw.
+The browser does not continuously stream camera video to OpenClaw. When the user asks the voice agent to look, see, inspect the camera, or inspect the shared screen, the site captures a single PNG/JPEG frame and attaches it directly to the active OpenAI Realtime conversation as an `input_image`.
 
 If the agent says it cannot see the camera:
 
 - Make sure the user clicked the camera button and granted browser camera permission.
-- Make sure `OPENAI_API_KEY` is set on the server or Vercel project, because the server uses it to describe captured frames.
-- Check `OPENAI_VISION_MODEL` if you override it; the default is used when it is unset.
 - Ask the agent to "look at my camera" after the preview has appeared.
 
 Optional artifact generation:

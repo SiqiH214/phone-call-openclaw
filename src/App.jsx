@@ -268,26 +268,40 @@ export function App() {
       return;
     }
 
-    try {
-      const response = await fetch("/api/openclaw/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: args.question || "Look at the current camera frame and describe what you see.",
-          context: "The user explicitly asked the voice agent to see them or inspect the current visual frame. Use the attached camera/screen image as the main context.",
-          responseStyle: args.responseStyle || "short, warm, natural spoken answer",
-          screenshot,
-        }),
-      });
-      const payload = await response.json();
-      sendToolResult(
-        event.call_id,
-        payload.ok ? payload : { error: payload.error || "Vision inspection failed." },
-        "Speak the visual observation back naturally, like a real person on a call. Be concise and do not mention implementation details."
-      );
-    } catch (error) {
-      sendToolResult(event.call_id, { error: error.message }, "Tell the user you couldn't inspect the view, briefly and naturally.");
-    }
+    sendImageToRealtime(screenshot, args.question || "Look at the current camera or screen frame and answer naturally.");
+    sendToolResult(
+      event.call_id,
+      { ok: true, status: "image_input_attached" },
+      [
+        "Use the image input that was just added to the conversation.",
+        args.responseStyle || "Answer naturally and briefly, like a real person on a call.",
+        "Do not say you cannot see the camera unless the image itself is unavailable or unreadable.",
+      ].join(" ")
+    );
+  }
+
+  function sendImageToRealtime(imageUrl, question) {
+    const channel = sessionRef.current?.channel;
+    if (!channel || channel.readyState !== "open" || !imageUrl) return;
+
+    channel.send(JSON.stringify({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: question,
+          },
+          {
+            type: "input_image",
+            image_url: imageUrl,
+            detail: "auto",
+          },
+        ],
+      },
+    }));
   }
 
   function sendToolResult(callId, payload, instructions = "Answer briefly and naturally.") {

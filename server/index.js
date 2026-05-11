@@ -140,7 +140,7 @@ async function mintRealtimeToken(_req, res) {
         {
           type: "function",
           name: "inspect_view",
-          description: "Capture the user's visible camera frame or shared screen and ask OpenClaw to inspect it with vision context.",
+          description: "Capture the user's visible camera frame or shared screen and attach it directly to this Realtime conversation as an image input.",
           parameters: {
             type: "object",
             properties: {
