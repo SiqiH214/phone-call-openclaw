@@ -320,10 +320,7 @@ export function App() {
     }
 
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    video.muted = true;
-    await video.play();
+    const video = await prepareCaptureVideo(stream);
     screenVideoRef.current = video;
     stream.getVideoTracks()[0]?.addEventListener("ended", () => {
       setScreenStream(null);
@@ -342,10 +339,7 @@ export function App() {
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    video.muted = true;
-    await video.play();
+    const video = await prepareCaptureVideo(stream);
     cameraVideoRef.current = video;
     stream.getVideoTracks()[0]?.addEventListener("ended", () => {
       setCameraStream(null);
@@ -380,7 +374,9 @@ export function App() {
   }
 
   async function captureFrame(video) {
-    if (!video || !video.videoWidth || !video.videoHeight) return null;
+    if (!video) return null;
+    await waitForVideoFrame(video);
+    if (!video.videoWidth || !video.videoHeight) return null;
     const canvas = document.createElement("canvas");
     const maxWidth = 1280;
     const scale = Math.min(1, maxWidth / video.videoWidth);
@@ -670,6 +666,39 @@ function fileToDataUrl(file) {
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(reader.error || new Error("Could not read image."));
     reader.readAsDataURL(file);
+  });
+}
+
+async function prepareCaptureVideo(stream) {
+  const video = document.createElement("video");
+  video.srcObject = stream;
+  video.muted = true;
+  video.playsInline = true;
+  video.autoplay = true;
+  await video.play().catch(() => {});
+  await waitForVideoFrame(video);
+  return video;
+}
+
+function waitForVideoFrame(video, timeoutMs = 1800) {
+  if (!video || video.videoWidth > 0 && video.videoHeight > 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      video.removeEventListener("loadedmetadata", finish);
+      video.removeEventListener("canplay", finish);
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const timer = window.setTimeout(finish, timeoutMs);
+    video.addEventListener("loadedmetadata", finish, { once: true });
+    video.addEventListener("canplay", finish, { once: true });
+    video.play().catch(() => {});
   });
 }
 

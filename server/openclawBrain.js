@@ -38,7 +38,7 @@ function uid() {
 }
 
 export async function askOpenClaw({ question, context, responseStyle, screenshot }) {
-  const visualContext = screenshot ? await describeScreenshot(screenshot).catch(() => "") : "";
+  const visualContext = screenshot ? await describeScreenshot(screenshot) : "";
   const message = [
     question,
     context ? `Context:\n${context}` : "",
@@ -60,38 +60,46 @@ export async function askOpenClaw({ question, context, responseStyle, screenshot
 }
 
 async function describeScreenshot(screenshot) {
-  if (!process.env.OPENAI_API_KEY) return "";
   if (!screenshot.startsWith("data:image/")) return "";
+  if (!process.env.OPENAI_API_KEY) {
+    return "A camera or screen frame was captured by the phone-call website, but server-side OPENAI_API_KEY is not configured, so the frame could not be inspected.";
+  }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_VISION_MODEL || "gpt-5.4-mini",
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: "Describe this screen in a concise way for an agent that needs to help the user. Include visible app/site, important text, UI state, errors, and what the user likely wants done. Do not mention private content unless it is necessary.",
-            },
-            {
-              type: "input_image",
-              image_url: screenshot,
-            },
-          ],
-        },
-      ],
-    }),
-  });
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_VISION_MODEL || "gpt-5.4-mini",
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "Describe this camera or screen frame in a concise way for an agent that needs to help the user. Include visible app/site, important text, UI state, errors, objects, person pose/expression, and what the user likely wants done. Do not mention private content unless it is necessary.",
+              },
+              {
+                type: "input_image",
+                image_url: screenshot,
+              },
+            ],
+          },
+        ],
+      }),
+    });
 
-  const payload = await response.json();
-  if (!response.ok) return "";
-  return payload.output_text || extractResponseText(payload);
+    const payload = await response.json();
+    if (!response.ok) {
+      return `A camera or screen frame was captured by the phone-call website, but the server vision request failed: ${payload?.error?.message || response.statusText}.`;
+    }
+    return payload.output_text || extractResponseText(payload) || "A camera or screen frame was captured, but the server vision response did not include a description.";
+  } catch (error) {
+    return `A camera or screen frame was captured by the phone-call website, but the server could not inspect it: ${error.message}.`;
+  }
 }
 
 function extractResponseText(payload) {
