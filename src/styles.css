@@ -87,6 +87,15 @@ body {
 
 button { font: inherit; }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .voice-room {
   position: relative;
   display: grid;
@@ -387,6 +396,234 @@ button { font: inherit; }
     0 24px 70px rgba(0, 0, 0, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
   backdrop-filter: blur(18px);
+}
+
+.agent-stage.is-chat-panel {
+  background:
+    radial-gradient(circle at 20% 12%, rgba(207, 195, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #fbfaf6, #f4f1eb);
+  color: #11100e;
+}
+
+.agent-stage.is-chat-panel::before,
+.agent-stage.is-chat-panel::after {
+  display: none;
+}
+
+.text-chat-view {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: clamp(22px, 4vw, 52px);
+  color: #141312;
+  background:
+    linear-gradient(rgba(251, 250, 246, 0.84), rgba(251, 250, 246, 0.94)),
+    url("/nova-assets/noise.webp");
+}
+
+.text-chat-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  color: rgba(20, 19, 18, 0.54);
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.text-chat-topbar div {
+  display: grid;
+  gap: 3px;
+}
+
+.text-chat-topbar b {
+  color: rgba(20, 19, 18, 0.82);
+  font-family: "Telka Extended", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.text-chat-topbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(20, 19, 18, 0.1);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.74);
+  color: rgba(20, 19, 18, 0.7);
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(20, 19, 18, 0.06);
+}
+
+.text-chat-messages {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 20px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px 2vw 26px;
+}
+
+.text-chat-messages::-webkit-scrollbar {
+  width: 0;
+}
+
+.text-message {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 640px);
+  gap: 12px;
+  align-items: end;
+  max-width: min(760px, 88%);
+}
+
+.text-message.user {
+  align-self: flex-end;
+  grid-template-columns: minmax(0, 640px);
+}
+
+.text-message.user .text-avatar {
+  display: none;
+}
+
+.text-message.agent {
+  align-self: flex-start;
+}
+
+.text-avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background:
+    linear-gradient(135deg, rgba(13, 13, 13, 0.72), rgba(131, 108, 224, 0.5)),
+    url("/nova-assets/noise.webp");
+  color: rgba(252, 250, 247, 0.9);
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.text-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+}
+
+.text-message span {
+  display: block;
+  margin: 0 0 5px 14px;
+  color: rgba(20, 19, 18, 0.42);
+  font-family: "Telka", sans-serif;
+  font-size: 13px;
+}
+
+.text-message.user span {
+  display: none;
+}
+
+.text-message p {
+  margin: 0;
+  border-radius: 22px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #141312;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(16px, 1.8vw, 20px);
+  line-height: 1.36;
+  box-shadow: 0 14px 38px rgba(20, 19, 18, 0.05);
+}
+
+.text-message.user p {
+  background: rgba(207, 195, 255, 0.34);
+}
+
+.text-message.is-typing p {
+  color: rgba(20, 19, 18, 0.48);
+}
+
+.text-composer {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(20, 19, 18, 0.08);
+  border-radius: 28px;
+  padding: 16px 18px 12px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.68)),
+    url("/nova-assets/noise.webp");
+  box-shadow: 0 22px 70px rgba(20, 19, 18, 0.08);
+}
+
+.text-composer textarea {
+  width: 100%;
+  min-height: 34px;
+  max-height: 130px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #141312;
+  font: 18px/1.35 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+
+.text-composer textarea::placeholder {
+  color: rgba(20, 19, 18, 0.42);
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(20, 19, 18, 0.48);
+}
+
+.composer-actions span {
+  margin-left: auto;
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.composer-actions button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(20, 19, 18, 0.5);
+  cursor: pointer;
+}
+
+.composer-actions button:first-child {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.composer-actions button.is-active {
+  color: var(--nova-green);
+}
+
+.composer-actions button[type="submit"] {
+  background: var(--nova-lavender);
+  color: #141312;
+}
+
+.composer-actions button:disabled {
+  opacity: 0.36;
+  cursor: default;
 }
 
 .call-transcript {
@@ -1071,25 +1308,24 @@ button { font: inherit; }
 /* Nova brand pass */
 body {
   background:
-    radial-gradient(circle at 30% 16%, rgba(207, 195, 255, 0.18), transparent 28%),
-    radial-gradient(circle at 80% 86%, rgba(131, 108, 224, 0.14), transparent 30%),
+    linear-gradient(130deg, rgba(207, 195, 255, 0.12), transparent 34%),
+    linear-gradient(315deg, rgba(247, 242, 164, 0.08), transparent 36%),
     var(--nova-black);
 }
 
 .voice-room {
   background:
-    linear-gradient(rgba(13, 13, 13, 0.88), rgba(13, 13, 13, 0.88)),
+    linear-gradient(180deg, rgba(13, 13, 13, 0.68), rgba(13, 13, 13, 0.92)),
     url("/nova-assets/noise.webp"),
-    radial-gradient(circle at 20% 20%, rgba(207, 195, 255, 0.16), transparent 26%),
     var(--nova-black);
 }
 
 .ambient-field {
   background:
-    radial-gradient(circle at 20% 30%, rgba(207, 195, 255, 0.14), transparent 26%),
-    radial-gradient(circle at 80% 25%, rgba(247, 242, 164, 0.08), transparent 24%),
-    radial-gradient(circle at 64% 76%, rgba(131, 108, 224, 0.16), transparent 30%);
-  filter: blur(54px);
+    linear-gradient(115deg, rgba(207, 195, 255, 0.14), transparent 38%),
+    linear-gradient(245deg, rgba(21, 203, 116, 0.08), transparent 42%),
+    linear-gradient(0deg, rgba(247, 242, 164, 0.07), transparent 48%);
+  filter: blur(48px);
 }
 
 .grain {
@@ -1100,32 +1336,73 @@ body {
 }
 
 .tiny-status,
-.soft-log {
+.soft-log,
+.media-presence {
   color: rgba(252, 250, 247, 0.58);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 400;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
-.tiny-status span::before,
-.tiny-status button::before {
-  background: var(--nova-lavender);
-  box-shadow: 0 0 12px rgba(207, 195, 255, 0.5);
+.tiny-status {
+  top: 20px;
+  display: inline-flex;
+  max-width: calc(100vw - 32px);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(252, 250, 247, 0.12);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background:
+    linear-gradient(180deg, rgba(34, 34, 34, 0.72), rgba(13, 13, 13, 0.66)),
+    url("/nova-assets/noise.webp");
+  box-shadow: 0 16px 46px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
 }
 
-.tiny-status button {
-  color: rgba(252, 250, 247, 0.62);
+.tiny-status span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  color: rgba(252, 250, 247, 0.72);
+  white-space: nowrap;
 }
 
-.tiny-status button:hover {
-  color: var(--nova-eggshell);
+.tiny-status span::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 9px;
+  border-radius: 50%;
+  background: var(--nova-red);
+  box-shadow: 0 0 12px rgba(255, 76, 98, 0.36);
+  content: "";
+}
+
+.tiny-status .is-ready::before {
+  background: var(--nova-green);
+  box-shadow: 0 0 12px rgba(21, 203, 116, 0.45);
 }
 
 .agent-stage {
   background: var(--nova-slate);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: var(--nova-shadow), inset 0 0 105px 15px rgba(0, 0, 0, 0.34);
+  box-shadow: var(--nova-shadow), inset 0 0 120px 18px rgba(0, 0, 0, 0.42);
+}
+
+.agent-stage::before {
+  position: absolute;
+  inset: 14px;
+  z-index: 2;
+  pointer-events: none;
+  border: 1px solid rgba(252, 250, 247, 0.1);
+  border-radius: 22px;
+  content: "";
+}
+
+.voice-room:not(.has-artifact) .agent-stage::before {
+  border-radius: 30px;
 }
 
 .has-artifact .agent-stage {
@@ -1134,6 +1411,7 @@ body {
 }
 
 .speech {
+  top: 21%;
   border: 1px solid rgba(13, 13, 13, 0.85);
   border-radius: var(--nova-radius-card);
   background: rgba(252, 250, 247, 0.94);
@@ -1163,15 +1441,69 @@ body {
   background: var(--nova-lavender);
   color: var(--nova-black);
   font-size: 17px;
+  min-width: 168px;
 }
 
 .media-pill {
+  min-width: 132px;
   background: rgba(34, 34, 34, 0.82);
   color: rgba(252, 250, 247, 0.78);
   font-family: "Space Mono", monospace;
   font-size: 10px;
   font-weight: 400;
   letter-spacing: 0.14em;
+}
+
+.media-pill.is-active {
+  border-color: rgba(21, 203, 116, 0.36);
+  background: rgba(21, 203, 116, 0.2);
+  color: var(--nova-eggshell);
+}
+
+.call-controls {
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.call-controls.is-idle {
+  padding: 0;
+}
+
+.call-controls.is-idle .call-button {
+  min-width: 190px;
+}
+
+.call-controls.is-expanded {
+  max-width: calc(100vw - 36px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.call-controls.is-expanded::-webkit-scrollbar {
+  display: none;
+}
+
+.call-controls.is-expanded .call-button {
+  min-width: 116px;
+}
+
+.media-presence {
+  position: absolute;
+  right: 30px;
+  bottom: 28px;
+  z-index: 4;
+  max-width: min(340px, 32vw);
+  overflow: hidden;
+  border: 1px solid rgba(252, 250, 247, 0.12);
+  border-radius: 999px;
+  padding: 9px 13px;
+  background: rgba(13, 13, 13, 0.52);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  backdrop-filter: blur(16px);
 }
 
 .call-transcript {
@@ -1191,6 +1523,24 @@ body {
     linear-gradient(rgba(207, 195, 255, 0.92), rgba(207, 195, 255, 0.92)),
     url("/nova-assets/noise.webp");
   color: var(--nova-black);
+}
+
+.call-transcript p.system {
+  background: rgba(13, 13, 13, 0.5);
+  color: rgba(252, 250, 247, 0.78);
+}
+
+.agent-stage.is-chat-panel {
+  border-color: rgba(20, 19, 18, 0.08);
+  background:
+    linear-gradient(rgba(251, 250, 246, 0.88), rgba(251, 250, 246, 0.96)),
+    url("/nova-assets/noise.webp");
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.12);
+}
+
+.agent-stage.is-chat-panel::before,
+.agent-stage.is-chat-panel::after {
+  display: none;
 }
 
 .is-live .call-button {
@@ -1214,6 +1564,7 @@ body {
 }
 
 .artifact-titlebar {
+  grid-template-columns: 74px minmax(0, 1fr) auto;
   border-bottom-color: rgba(255, 255, 255, 0.09);
   background: rgba(13, 13, 13, 0.78);
 }
@@ -1277,6 +1628,10 @@ body {
   background: rgba(34, 34, 34, 0.88);
   color: rgba(252, 250, 247, 0.7);
   border-radius: 12px;
+}
+
+.history-clear {
+  border-color: rgba(255, 76, 98, 0.22) !important;
 }
 
 .history-dock span {
@@ -1353,11 +1708,20 @@ body {
   left: 50%;
   z-index: 2;
   transform: translateX(-50%);
-  color: rgba(41, 39, 34, 0.32);
+  color: rgba(252, 250, 247, 0.36);
   font-size: 10px;
-  font-weight: 760;
+  font-weight: 400;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+.loader span,
+.loader span:nth-child(2),
+.loader span:nth-child(3) {
+  background:
+    radial-gradient(circle at 62% 36%, rgba(252, 250, 247, 0.72), transparent 22%),
+    linear-gradient(135deg, var(--nova-device), var(--nova-lavender));
+  mix-blend-mode: normal;
 }
 
 @media (max-width: 620px) {
@@ -1392,6 +1756,7 @@ body {
   .call-controls {
     width: calc(100% - 24px);
     gap: 8px;
+    padding: 0;
   }
 
   .call-button {
@@ -1400,9 +1765,25 @@ body {
     font-size: 16px;
   }
 
+  .call-controls.is-idle {
+    width: auto;
+  }
+
+  .call-controls.is-idle .call-button {
+    min-width: 164px;
+  }
+
+  .call-controls.is-expanded {
+    justify-content: flex-start;
+  }
+
+  .call-controls.is-expanded .call-button {
+    min-width: 88px;
+  }
+
   .media-pill {
-    min-width: 0;
-    flex: 1;
+    flex: 0 0 auto;
+    min-width: 116px;
     min-height: 40px;
     padding: 0 10px;
     font-size: 8px;
@@ -1420,12 +1801,72 @@ body {
     font-size: 11px;
   }
 
+  .text-chat-view {
+    padding: 18px 12px 12px;
+  }
+
+  .text-chat-topbar {
+    padding-inline: 4px;
+  }
+
+  .text-chat-messages {
+    gap: 14px;
+    padding: 18px 2px 16px;
+  }
+
+  .text-message {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 8px;
+    max-width: 94%;
+  }
+
+  .text-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 8px;
+  }
+
+  .text-message p {
+    border-radius: 18px;
+    padding: 11px 13px;
+    font-size: 15px;
+  }
+
+  .text-composer {
+    border-radius: 22px;
+    padding: 12px;
+  }
+
+  .composer-actions {
+    gap: 2px;
+  }
+
+  .composer-actions span {
+    display: none;
+  }
+
   .tiny-status {
     top: 16px;
-    width: 100%;
+    width: calc(100% - 20px);
     justify-content: center;
     padding-inline: 12px;
-    gap: 9px;
+    font-size: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tiny-status::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tiny-status span {
+    min-height: 22px;
+  }
+
+  .media-presence {
+    right: 18px;
+    bottom: 84px;
+    max-width: calc(100% - 36px);
     font-size: 8px;
   }
 

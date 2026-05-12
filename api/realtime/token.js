@@ -66,6 +66,11 @@ export default async function handler(_req, res) {
       ],
       tool_choice: "auto",
       audio: {
+        input: {
+          transcription: {
+            model: process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe",
+          },
+        },
         output: {
           voice: realtimeVoice,
         },

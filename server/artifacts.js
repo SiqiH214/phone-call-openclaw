@@ -1,3 +1,5 @@
+import { fal } from "@fal-ai/client";
+
 const falVideoEndpoint = cleanModelId(process.env.FAL_VIDEO_MODEL || "bytedance/seedance-2.0/fast/text-to-video");
 const falImageToVideoEndpoint = cleanModelId(process.env.FAL_IMAGE_TO_VIDEO_MODEL || "fal-ai/kling-video/v3/standard/image-to-video");
 const falVideoEditEndpoint = cleanModelId(process.env.FAL_VIDEO_EDIT_MODEL || "fal-ai/wan/v2.7/edit-video");
@@ -17,29 +19,30 @@ const allowedFalVideoEndpoints = new Set([
 export async function renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName }) {
   const referenceImage = imageDataUrl || (mediaType?.startsWith("image/") ? mediaDataUrl : null);
   const referenceVideo = mediaType?.startsWith("video/") ? mediaDataUrl : null;
+  const artifactPrompt = normalizePromptForKind(kind, prompt);
 
   if (kind === "image") {
-    return renderImage(prompt, referenceImage);
+    return renderImage(artifactPrompt, referenceImage);
   }
 
   if (kind === "video") {
-    return createVideo(prompt, { referenceImage, referenceVideo, mediaName });
+    return createVideo(artifactPrompt, { referenceImage, referenceVideo, mediaName });
   }
 
   if (kind === "music" || kind === "audio") {
-    return createMusic(prompt);
+    return createMusic(artifactPrompt);
   }
 
   if (["doc", "markdown", "pdf", "word", "docx"].includes(kind)) {
-    return renderTextArtifact({ kind, prompt, format: "markdown" });
+    return renderTextArtifact({ kind, prompt: artifactPrompt, format: "markdown" });
   }
 
   if (kind === "html") {
-    return renderTextArtifact({ kind, prompt, format: "html" });
+    return renderTextArtifact({ kind, prompt: artifactPrompt, format: "html" });
   }
 
   if (kind === "code") {
-    return renderTextArtifact({ kind, prompt, format: "code" });
+    return renderTextArtifact({ kind, prompt: artifactPrompt, format: "code" });
   }
 
   return {
@@ -67,37 +70,43 @@ export async function getAsyncArtifact({ requestId, kind = "video", endpoint, st
 async function renderImage(prompt, imageDataUrl) {
   const endpoint = imageDataUrl ? falImageEditEndpoint : falImageEndpoint;
   const referenceImageUrl = imageDataUrl ? await uploadDataUrlForFal(imageDataUrl, "reference.png") : null;
+  const imagePrompt = normalizeImagePrompt(prompt);
   const body = imageDataUrl
     ? {
-        prompt,
+        prompt: imagePrompt,
         image_urls: [referenceImageUrl],
         num_images: 1,
-        aspect_ratio: "auto",
+        aspect_ratio: imageAspectRatio(),
         output_format: "png",
       }
     : {
-        prompt,
+        prompt: imagePrompt,
         num_images: 1,
-        aspect_ratio: "auto",
+        aspect_ratio: imageAspectRatio(),
         resolution: process.env.FAL_IMAGE_RESOLUTION || "1K",
         limit_generations: true,
         output_format: "png",
       };
 
-  const response = await falFetch(`https://fal.run/${endpoint}`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await falFetch(`https://fal.run/${endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new Error(friendlyProviderError(error, "Image generation failed. Try a more specific visual prompt, or upload a reference image."));
+  }
 
   const payload = await response.json();
   const imageUrl = payload.images?.[0]?.url || payload.image?.url || payload.url;
-  if (!imageUrl) throw new Error("Gemini image generation did not return an image.");
+  if (!imageUrl) throw new Error("Image generation finished without an image. Try a more specific visual prompt.");
 
   return {
     kind: "image",
     status: "ready",
     imageUrl,
-    prompt,
+    prompt: imagePrompt,
     model: endpoint,
   };
 }
@@ -364,13 +373,58 @@ function videoEndpointForInput({ referenceImage, referenceVideo } = {}) {
 }
 
 function cleanModelId(value) {
-  return String(value || "").replace(/[\r\n\t]/g, "").trim();
+  return String(value || "").replace(/\\[rnt]/g, "").replace(/[\r\n\t]/g, "").trim();
 }
 
 function resolveAsyncEndpoint(kind, endpoint) {
   if (endpoint) return cleanModelId(endpoint);
   if (kind === "music" || kind === "audio") return falMusicEndpoint;
   return normalizeFalEndpoint(cleanModelId(process.env.FAL_VIDEO_MODEL || falVideoEndpoint));
+}
+
+function normalizePromptForKind(kind, prompt = "") {
+  const cleanPrompt = String(prompt || "").replace(/\s+/g, " ").trim();
+  if (!cleanPrompt || /^make an artifact from this conversation\.?$/i.test(cleanPrompt)) {
+    if (kind === "image") {
+      return "Create a polished editorial visual artifact for this live agent call: abstract cinematic interface poster, dark Nova-style palette, subtle lavender accent, refined grain texture, clean composition, no readable text.";
+    }
+    if (kind === "html") {
+      return "Create a minimal standalone HTML artifact for this live agent call with elegant typography, subtle dark interface styling, and one clear content section.";
+    }
+    if (kind === "video") {
+      return "Create a short cinematic ambient loop for a live agent call interface, subtle motion only, dark refined palette, no text.";
+    }
+    return "Create a concise, polished artifact from this live agent conversation.";
+  }
+  return cleanPrompt;
+}
+
+function normalizeImagePrompt(prompt = "") {
+  const cleanPrompt = normalizePromptForKind("image", prompt);
+  if (cleanPrompt.length < 18 || /\b(artifact|image|picture|something|this conversation)\b/i.test(cleanPrompt) && cleanPrompt.length < 72) {
+    return [
+      cleanPrompt,
+      "Make it visually specific: refined editorial poster, cinematic lighting, tactile grain, balanced negative space, sophisticated dark/lavender color language, no logos, no watermarks, no UI text.",
+    ].join(" ");
+  }
+  return cleanPrompt;
+}
+
+function imageAspectRatio() {
+  const ratio = cleanModelId(process.env.FAL_IMAGE_ASPECT_RATIO || "16:9");
+  const allowed = new Set(["21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"]);
+  return allowed.has(ratio) ? ratio : "16:9";
+}
+
+function friendlyProviderError(error, fallback) {
+  const message = String(error?.message || error || "");
+  if (/expected output|unsafe content|incompatible|missing attachments|cannot be processed/i.test(message)) {
+    return fallback;
+  }
+  if (/verified|Verify Organization/i.test(message)) {
+    return "Image model access is not ready on this account yet.";
+  }
+  return message || fallback;
 }
 
 function normalizeTextArtifact(content = "", format, prompt = "") {
@@ -447,4 +501,3 @@ function fallbackHtml(prompt = "") {
     "</html>",
   ].join("");
 }
-import { fal } from "@fal-ai/client";
