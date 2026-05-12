@@ -123,6 +123,11 @@ export function App() {
       return;
     }
 
+    if (event.name === "recall_memory") {
+      await handleMemoryRecall(event, args);
+      return;
+    }
+
     if (event.name === "web_search") {
       await handleWebSearch(event, args);
       return;
@@ -397,6 +402,30 @@ export function App() {
       );
     } catch (error) {
       sendToolResult(event.call_id, { error: error.message }, "Tell the user OpenClaw failed, briefly and naturally.");
+    }
+  }
+
+  async function handleMemoryRecall(event, args) {
+    const query = args.query || args.question || "Recall relevant memory for this conversation.";
+    setEvents((items) => [{ type: "memory.recall", message: query }, ...items].slice(0, 3));
+    try {
+      const response = await fetch("/api/tools/recall-memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          context: openClawContext(args.context),
+          responseStyle: args.responseStyle || "short natural spoken answer grounded in memory",
+        }),
+      });
+      const payload = await response.json();
+      sendToolResult(
+        event.call_id,
+        payload.ok ? payload : { error: payload.error || "Memory recall failed." },
+        "Use the recalled memory naturally. If nothing was remembered, say that briefly and do not invent."
+      );
+    } catch (error) {
+      sendToolResult(event.call_id, { error: error.message }, "Tell the user memory recall failed, briefly and naturally.");
     }
   }
 

@@ -51,6 +51,21 @@ export default async function handler(_req, res) {
         },
         {
           type: "function",
+          name: "recall_memory",
+          description: "Ask OpenClaw to recall durable memory, persona facts, preferences, prior decisions, or project context. Use when the user asks what you remember, references past conversations, or needs remembered context before answering. Do not use this for external actions or broad tool work; use ask_openclaw for that.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "The memory or context to recall." },
+              context: { type: "string", description: "Optional context from the current voice conversation." },
+              responseStyle: { type: "string", description: "How the recalled memory should be spoken back." },
+            },
+            required: ["query"],
+            additionalProperties: false,
+          },
+        },
+        {
+          type: "function",
           name: "web_search",
           description: "Ask OpenClaw to search or research the web and return a sourced, current answer.",
           parameters: {

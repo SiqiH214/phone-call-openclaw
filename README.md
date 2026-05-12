@@ -127,6 +127,16 @@ Tradeoffs: this is more flexible, but it can be slower than local one-shot route
 
 The phone site does not need to know every skill or MCP server by name. If the connected OpenClaw can use it in chat, the voice call can route the request through `ask_openclaw` with the same gateway permissions.
 
+## Memory Recall
+
+The Realtime voice model chooses between direct voice response, `recall_memory`, and `ask_openclaw`:
+
+- Direct response: fast, conversational turns already grounded in the live call.
+- `recall_memory`: "do you remember..." questions, preferences, prior decisions, persona facts, and durable project context.
+- `ask_openclaw`: tools, skills, MCP, files, apps, web, actions, and multi-step artifact work.
+
+`recall_memory` routes through OpenClaw because OpenClaw owns the durable memory layer. If a connected OpenClaw can recall it in chat, the voice call can ask for the same memory and speak it back naturally. This adds an OpenClaw round trip only when recall is needed; normal voice chat stays on the direct Realtime path.
+
 ## Web Search
 
 Voice calls include a `web_search` tool that routes through OpenClaw. Installers should enable whatever web-search capability their OpenClaw uses; the phone site does not hardcode a separate search provider.
