@@ -1,4 +1,7 @@
 import { fal } from "@fal-ai/client";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const falVideoEndpoint = cleanModelId(process.env.FAL_VIDEO_MODEL || "bytedance/seedance-2.0/fast/text-to-video");
 const falImageToVideoEndpoint = cleanModelId(process.env.FAL_IMAGE_TO_VIDEO_MODEL || "fal-ai/kling-video/v3/standard/image-to-video");
@@ -6,6 +9,9 @@ const falVideoEditEndpoint = cleanModelId(process.env.FAL_VIDEO_EDIT_MODEL || "f
 const falImageEndpoint = cleanModelId(process.env.FAL_IMAGE_MODEL || "fal-ai/nano-banana-2");
 const falImageEditEndpoint = cleanModelId(process.env.FAL_IMAGE_EDIT_MODEL || "fal-ai/nano-banana/edit");
 const falMusicEndpoint = cleanModelId(process.env.FAL_MUSIC_MODEL || "fal-ai/minimax-music/v2.6");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, "..");
+const openclawAvatarPath = path.join(rootDir, "public", "identity", "openclaw-avatar.jpg");
 const allowedFalVideoEndpoints = new Set([
   "bytedance/seedance-2.0/fast/text-to-video",
   "bytedance/seedance-2.0/text-to-video",
@@ -68,19 +74,25 @@ export async function getAsyncArtifact({ requestId, kind = "video", endpoint, st
 }
 
 async function renderImage(prompt, imageDataUrl) {
-  const endpoint = imageDataUrl ? falImageEditEndpoint : falImageEndpoint;
-  const referenceImageUrl = imageDataUrl ? await uploadDataUrlForFal(imageDataUrl, "reference.png") : null;
+  const useAgentAvatar = !imageDataUrl && shouldUseAgentAvatarReference(prompt);
+  const endpoint = imageDataUrl || useAgentAvatar ? falImageEditEndpoint : falImageEndpoint;
+  const referenceImageUrl = imageDataUrl
+    ? await uploadDataUrlForFal(imageDataUrl, "reference.png")
+    : useAgentAvatar
+      ? await uploadLocalFileForFal(openclawAvatarPath, "openclaw-avatar.jpg", "image/jpeg")
+      : null;
   const imagePrompt = normalizeImagePrompt(prompt);
-  const body = imageDataUrl
+  const finalPrompt = useAgentAvatar ? agentAvatarImagePrompt(imagePrompt) : imagePrompt;
+  const body = referenceImageUrl
     ? {
-        prompt: imagePrompt,
+        prompt: finalPrompt,
         image_urls: [referenceImageUrl],
         num_images: 1,
         aspect_ratio: imageAspectRatio(),
         output_format: "png",
       }
     : {
-        prompt: imagePrompt,
+        prompt: finalPrompt,
         num_images: 1,
         aspect_ratio: imageAspectRatio(),
         resolution: process.env.FAL_IMAGE_RESOLUTION || "1K",
@@ -106,8 +118,9 @@ async function renderImage(prompt, imageDataUrl) {
     kind: "image",
     status: "ready",
     imageUrl,
-    prompt: imagePrompt,
+    prompt: finalPrompt,
     model: endpoint,
+    referenceSource: useAgentAvatar ? "openclaw_avatar" : imageDataUrl ? "reference_image" : "text",
   };
 }
 
@@ -254,10 +267,19 @@ async function falFetch(url, options = {}) {
 async function uploadDataUrlForFal(dataUrl, fileName = "reference.bin") {
   if (!dataUrl) return null;
   if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
+  const { mime, buffer } = dataUrlToBuffer(dataUrl);
+  return uploadBufferForFal(buffer, fileName, mime);
+}
+
+async function uploadLocalFileForFal(filePath, fileName = "reference.bin", mime = "application/octet-stream") {
+  const buffer = fs.readFileSync(filePath);
+  return uploadBufferForFal(buffer, fileName, mime);
+}
+
+async function uploadBufferForFal(buffer, fileName, mime) {
   const key = process.env.FAL_KEY;
   if (!key) throw new Error("FAL_KEY is not set.");
   fal.config({ credentials: key });
-  const { mime, buffer } = dataUrlToBuffer(dataUrl);
   const blob = new Blob([buffer], { type: mime });
   return fal.storage.upload(blob, { fileName });
 }
@@ -408,6 +430,18 @@ function normalizeImagePrompt(prompt = "") {
     ].join(" ");
   }
   return cleanPrompt;
+}
+
+function shouldUseAgentAvatarReference(prompt = "") {
+  const text = String(prompt || "").toLowerCase();
+  return /自拍|你的自拍|你的照片|你自己|你.*自拍|给自己|selfie|avatar|openclaw avatar|47_h|47\b|agent selfie|your (photo|portrait|selfie|image|avatar)|photo of you|portrait of you|image of you/.test(text);
+}
+
+function agentAvatarImagePrompt(prompt = "") {
+  return [
+    prompt,
+    "Use the attached OpenClaw avatar as the identity reference. Generate a new selfie/portrait of the same character/person, preserving the face identity and black minimalist styling. Keep the 3D stylized avatar / Pixar-like aesthetic from the reference. Do not generate an unrelated person. No text, no watermark.",
+  ].join("\n\n");
 }
 
 function imageAspectRatio() {
