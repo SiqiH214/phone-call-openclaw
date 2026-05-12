@@ -117,11 +117,15 @@ The phone site is a voice shell over OpenClaw, not a second limited artifact eng
 - t2i/i2i/t2v/i2v media generation
 - keyframe and multi-shot video planning
 - stitching or editing workflows
-- files, browser actions, GitHub, Slack, Linear, and server tasks
+- installed OpenClaw skills and MCP servers
+- connected apps/connectors such as Gmail, GitHub, Slack, Linear, and Vercel
+- files, browser actions, and server tasks
 
 `render_artifact` remains as a local fallback for simple one-step artifacts. When OpenClaw returns an artifact JSON payload or a direct image/video/audio URL, the phone UI opens it in the artifact panel.
 
 Tradeoffs: this is more flexible, but it can be slower than local one-shot routes, depends on the connected OpenClaw tools being configured, and needs a clear return convention for rich artifacts. Plain text answers still work even when no artifact URL is returned.
+
+The phone site does not need to know every skill or MCP server by name. If the connected OpenClaw can use it in chat, the voice call can route the request through `ask_openclaw` with the same gateway permissions.
 
 ## Web Search
 

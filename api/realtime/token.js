@@ -37,7 +37,7 @@ export default async function handler(_req, res) {
         {
           type: "function",
           name: "ask_openclaw",
-          description: "Ask the connected OpenClaw agent to plan and execute with its full tools. Use for web search/research, files, GitHub, Slack, Linear, browser/server context, and flexible artifact/media workflows including image generation/editing, t2v, i2v, keyframes, stitching, and multi-step tasks.",
+          description: "Ask the connected OpenClaw agent to plan and execute with its full tools, including installed skills, MCP servers, connectors, apps, filesystem, and local tools. Use for web search/research, files, GitHub, Slack, Linear, browser/server context, and flexible artifact/media workflows including image generation/editing, t2v, i2v, keyframes, stitching, and multi-step tasks.",
           parameters: {
             type: "object",
             properties: {
