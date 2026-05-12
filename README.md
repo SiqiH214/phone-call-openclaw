@@ -73,9 +73,11 @@ OPENCLAW_OWNER_NAME=Jane
 PUBLIC_AGENT_AVATAR_IMAGE_URL=/avatar.png
 PUBLIC_AGENT_AVATAR_VIDEO_URL=/avatar-live.mp4
 PUBLIC_AGENT_AVATAR_INITIALS=AD
+OPENCLAW_IDENTITY_AVATAR_URL=/avatar.png
 ```
 
 `PUBLIC_AGENT_AVATAR_IMAGE_URL` is used when idle and as the video poster. `PUBLIC_AGENT_AVATAR_VIDEO_URL` is used while the call is live. These can be local `/file.ext` paths from `public/` or full hosted URLs.
+`OPENCLAW_IDENTITY_AVATAR_URL` is optional; set it when artifact generation should use a different image as the agent's identity reference. If it is empty, artifact generation falls back to `PUBLIC_AGENT_AVATAR_IMAGE_URL`.
 
 Optional voice/personality override:
 
@@ -129,6 +131,8 @@ FAL_MUSIC_MODEL=fal-ai/minimax-music/v2.6
 If you skip `FAL_KEY`, text/code/html artifacts still work, but image/video/music generation will return a setup error.
 
 Image and video artifacts support reference media. If the user uploads an image/video, the site sends that as the reference. If camera or screen share is on, the site can capture the current frame and pass it as a reference image, so prompts like "make an avatar based on my camera" can use the camera snapshot.
+
+When the user asks the agent to make an image of itself, such as "make your own portrait" or "make a 47 avatar", the server uses `OPENCLAW_IDENTITY_AVATAR_URL` or `PUBLIC_AGENT_AVATAR_IMAGE_URL` as the identity reference image for Fal image editing. This mirrors normal OpenClaw chat behavior in the voice-call surface.
 
 ## Deploy On Vercel
 

@@ -194,9 +194,9 @@ app.post("/api/session", mintRealtimeToken);
 
 
 app.post("/api/artifacts/render", async (req, res) => {
-  const { kind = "image", prompt = "", imageDataUrl = null, mediaDataUrl = null, mediaType = null, mediaName = null } = req.body || {};
+  const { kind = "image", prompt = "", imageDataUrl = null, mediaDataUrl = null, mediaType = null, mediaName = null, referenceSource = null } = req.body || {};
   try {
-    const artifact = await renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName });
+    const artifact = await renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName, referenceSource });
     res.json(artifact);
   } catch (error) {
     res.status(500).json({ kind, status: "error", error: error.message });

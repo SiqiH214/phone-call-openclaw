@@ -2,6 +2,7 @@ import { fal } from "@fal-ai/client";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { agentAvatarImageUrl } from "../shared/channel.js";
 
 const falVideoEndpoint = cleanModelId(process.env.FAL_VIDEO_MODEL || "bytedance/seedance-2.0/fast/text-to-video");
 const falImageToVideoEndpoint = cleanModelId(process.env.FAL_IMAGE_TO_VIDEO_MODEL || "fal-ai/kling-video/v3/standard/image-to-video");
@@ -22,13 +23,14 @@ const allowedFalVideoEndpoints = new Set([
   "fal-ai/wan/v2.7/edit-video",
 ]);
 
-export async function renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName }) {
-  const referenceImage = imageDataUrl || (mediaType?.startsWith("image/") ? mediaDataUrl : null);
+export async function renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName, referenceSource }) {
   const referenceVideo = mediaType?.startsWith("video/") ? mediaDataUrl : null;
   const artifactPrompt = normalizePromptForKind(kind, prompt);
+  const useAgentAvatar = kind === "image" && referenceSource !== "upload" && shouldUseAgentAvatarReference(artifactPrompt);
+  const referenceImage = useAgentAvatar ? null : imageDataUrl || (mediaType?.startsWith("image/") ? mediaDataUrl : null);
 
   if (kind === "image") {
-    return renderImage(artifactPrompt, referenceImage);
+    return renderImage(artifactPrompt, referenceImage, { useAgentAvatar });
   }
 
   if (kind === "video") {
@@ -73,13 +75,12 @@ export async function getAsyncArtifact({ requestId, kind = "video", endpoint, st
   return falAsyncPayload({ kind, endpoint: resolvedEndpoint, requestId, status, result, statusUrl, responseUrl });
 }
 
-async function renderImage(prompt, imageDataUrl) {
-  const useAgentAvatar = !imageDataUrl && shouldUseAgentAvatarReference(prompt);
+async function renderImage(prompt, imageDataUrl, { useAgentAvatar = false } = {}) {
   const endpoint = imageDataUrl || useAgentAvatar ? falImageEditEndpoint : falImageEndpoint;
   const referenceImageUrl = imageDataUrl
     ? await uploadDataUrlForFal(imageDataUrl, "reference.png")
     : useAgentAvatar
-      ? await uploadLocalFileForFal(openclawAvatarPath, "openclaw-avatar.jpg", "image/jpeg")
+      ? await resolveAgentAvatarReference()
       : null;
   const imagePrompt = normalizeImagePrompt(prompt);
   const finalPrompt = useAgentAvatar ? agentAvatarImagePrompt(imagePrompt) : imagePrompt;
@@ -434,7 +435,7 @@ function normalizeImagePrompt(prompt = "") {
 
 function shouldUseAgentAvatarReference(prompt = "") {
   const text = String(prompt || "").toLowerCase();
-  return /自拍|你的自拍|你的照片|你自己|你.*自拍|给自己|selfie|avatar|openclaw avatar|47_h|47\b|agent selfie|your (photo|portrait|selfie|image|avatar)|photo of you|portrait of you|image of you/.test(text);
+  return /你的自拍|你的照片|你自己|你.*自拍|给你自己|openclaw avatar|openclaw.*(photo|portrait|selfie|image|avatar)|47_h|47\b|agent selfie|agent.*(photo|portrait|selfie|image|avatar)|your (photo|portrait|selfie|image|avatar)|photo of you|portrait of you|image of you|picture of you/.test(text);
 }
 
 function agentAvatarImagePrompt(prompt = "") {
@@ -442,6 +443,27 @@ function agentAvatarImagePrompt(prompt = "") {
     prompt,
     "Use the attached OpenClaw avatar as the identity reference. Generate a new selfie/portrait of the same character/person, preserving the face identity and black minimalist styling. Keep the 3D stylized avatar / Pixar-like aesthetic from the reference. Do not generate an unrelated person. No text, no watermark.",
   ].join("\n\n");
+}
+
+async function resolveAgentAvatarReference() {
+  const source = process.env.OPENCLAW_IDENTITY_AVATAR_URL || agentAvatarImageUrl;
+  if (/^https?:\/\//i.test(source)) return source;
+  if (source.startsWith("data:image/")) return uploadDataUrlForFal(source, "agent-avatar.png");
+  if (source.startsWith("/")) {
+    const localPath = path.join(rootDir, "public", source.replace(/^\/+/, ""));
+    if (fs.existsSync(localPath)) return uploadLocalFileForFal(localPath, path.basename(localPath), mimeForPath(localPath));
+  }
+  if (fs.existsSync(openclawAvatarPath)) {
+    return uploadLocalFileForFal(openclawAvatarPath, "openclaw-avatar.jpg", "image/jpeg");
+  }
+  throw new Error("Agent avatar reference is not configured. Set PUBLIC_AGENT_AVATAR_IMAGE_URL or OPENCLAW_IDENTITY_AVATAR_URL.");
+}
+
+function mimeForPath(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  return "image/jpeg";
 }
 
 function imageAspectRatio() {
