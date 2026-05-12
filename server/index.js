@@ -104,7 +104,7 @@ async function mintRealtimeToken(_req, res) {
         {
           type: "function",
           name: "render_artifact",
-          description: "Local fallback renderer for simple single-step artifacts. For agentic media workflows, t2v/i2v/keyframes/stitching, current web research, files, or OpenClaw tools, prefer ask_openclaw.",
+          description: "Fast local renderer for simple single-step artifacts, including simple self-portraits/avatar images of the agent using the configured identity reference. For agentic media workflows, t2v/i2v/keyframes/stitching, current web research, files, or OpenClaw tools, prefer ask_openclaw.",
           parameters: {
             type: "object",
             properties: {

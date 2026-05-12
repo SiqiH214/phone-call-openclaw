@@ -151,7 +151,8 @@ export function App() {
     setArtifactCollapsed(false);
 
     try {
-      const visualReference = await captureArtifactReference(kind);
+      const useAgentAvatarReference = kind === "image" && isAgentSelfImagePrompt(prompt);
+      const visualReference = useAgentAvatarReference ? null : await captureArtifactReference(kind);
       const uploadedImage = uploadedMedia?.type?.startsWith("image/") ? uploadedMedia.dataUrl : null;
       const response = await fetch("/api/artifacts/render", {
         method: "POST",
@@ -163,7 +164,7 @@ export function App() {
           mediaType: uploadedMedia?.type || null,
           mediaName: uploadedMedia?.name || null,
           imageDataUrl: uploadedImage || visualReference,
-          referenceSource: uploadedImage ? "upload" : visualReference ? "camera_or_screen" : null,
+          referenceSource: uploadedImage ? "upload" : useAgentAvatarReference ? "agent_avatar" : visualReference ? "camera_or_screen" : null,
         }),
       });
       const payload = await response.json();
@@ -1145,6 +1146,11 @@ function normalizeArtifactPrompt(kind, prompt = "") {
     return "Create a concise, polished artifact from this live agent conversation.";
   }
   return clean;
+}
+
+function isAgentSelfImagePrompt(prompt = "") {
+  const text = String(prompt || "").toLowerCase();
+  return /你的自拍|你的照片|你自己|你.*自拍|给你自己|openclaw avatar|openclaw.*(photo|portrait|selfie|image|avatar)|47_h|47\b|agent selfie|agent.*(photo|portrait|selfie|image|avatar)|your (photo|portrait|selfie|image|avatar)|photo of you|portrait of you|image of you|picture of you/.test(text);
 }
 
 function artifactToolInstruction(payload) {

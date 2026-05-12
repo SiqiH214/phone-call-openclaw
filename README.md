@@ -121,7 +121,7 @@ The phone site is a voice shell over OpenClaw, not a second limited artifact eng
 - connected apps/connectors such as Gmail, GitHub, Slack, Linear, and Vercel
 - files, browser actions, and server tasks
 
-`render_artifact` remains as a local fallback for simple one-step artifacts. When OpenClaw returns an artifact JSON payload or a direct image/video/audio URL, the phone UI opens it in the artifact panel.
+`render_artifact` is the fast path for simple one-step artifacts, including a simple self-portrait/avatar image of the agent. When OpenClaw returns an artifact JSON payload or a direct image/video/audio URL, the phone UI opens it in the artifact panel.
 
 Tradeoffs: this is more flexible, but it can be slower than local one-shot routes, depends on the connected OpenClaw tools being configured, and needs a clear return convention for rich artifacts. Plain text answers still work even when no artifact URL is returned.
 
@@ -166,7 +166,7 @@ If you skip `FAL_KEY`, text/code/html artifacts still work, but image/video/musi
 
 Image and video artifacts support reference media. If the user uploads an image/video, the site sends that as the reference. If camera or screen share is on, the site can capture the current frame and pass it as a reference image, so prompts like "make an avatar based on my camera" can use the camera snapshot.
 
-When the user asks the agent to make an image of itself, such as "make your own portrait" or "make a 47 avatar", the server uses `OPENCLAW_IDENTITY_AVATAR_URL` or `PUBLIC_AGENT_AVATAR_IMAGE_URL` as the identity reference image for Fal image editing. This mirrors normal OpenClaw chat behavior in the voice-call surface.
+When the user asks the agent to make a simple image of itself, such as "make your own portrait" or "make a 47 avatar", the voice model should call the fast `render_artifact` path. The server uses `OPENCLAW_IDENTITY_AVATAR_URL` or `PUBLIC_AGENT_AVATAR_IMAGE_URL` as the identity reference image for Fal image editing. More complex self-media workflows can still route through OpenClaw.
 
 ## Deploy On Vercel
 
