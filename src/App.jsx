@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, ImagePlus, MessageCircle, MonitorDown, Phone, PhoneOff, ScreenShare } from "lucide-react";
+import { AtSign, Camera, ImagePlus, MessageCircle, Mic, MonitorDown, Phone, PhoneOff, Plus, ScreenShare, Send, SlidersHorizontal } from "lucide-react";
 import { startRealtimeCall } from "./realtime.js";
 
 const HISTORY_KEY = "phone-call-openclaw-session-history:v1";
@@ -17,16 +17,31 @@ export function App() {
   const [screenStream, setScreenStream] = useState(null);
   const [cameraStream, setCameraStream] = useState(null);
   const [uploadedMedia, setUploadedMedia] = useState(null);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("call");
+  const [chatMessages, setChatMessages] = useState(() => [
+    {
+      id: "initial-agent",
+      role: "agent",
+      name: "47",
+      text: "hey, i'm here. type or call me.",
+    },
+  ]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatSending, setChatSending] = useState(false);
   const screenVideoRef = useRef(null);
   const cameraVideoRef = useRef(null);
   const uploadInputRef = useRef(null);
   const sessionRef = useRef(null);
+  const liveAgentMessageIdRef = useRef(null);
 
   const live = ["minting", "requesting microphone", "connecting", "live"].includes(callState);
   const memoryReady = persona?.connected?.identity && persona?.connected?.soul && persona?.connected?.memory;
   const agentName = server?.config?.agentName || "OpenClaw";
+  const avatarImageUrl = server?.config?.agentAvatarImageUrl || "/girl-agent-main.png";
+  const avatarVideoUrl = server?.config?.agentAvatarVideoUrl || "/girl-agent-kling.mp4";
+  const avatarInitials = server?.config?.agentAvatarInitials || "AI";
   const terminalStatus = formatTerminalStatus({ callState, server, memoryReady, screenStream, cameraStream, uploadedMedia });
+  const isChatView = viewMode === "chat";
 
   useEffect(() => {
     Promise.all([
@@ -121,6 +136,8 @@ export function App() {
     setArtifactCollapsed(false);
 
     try {
+      const visualReference = await captureArtifactReference(kind);
+      const uploadedImage = uploadedMedia?.type?.startsWith("image/") ? uploadedMedia.dataUrl : null;
       const response = await fetch("/api/artifacts/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,7 +147,8 @@ export function App() {
           mediaDataUrl: uploadedMedia?.dataUrl || null,
           mediaType: uploadedMedia?.type || null,
           mediaName: uploadedMedia?.name || null,
-          imageDataUrl: uploadedMedia?.type?.startsWith("image/") ? uploadedMedia.dataUrl : null,
+          imageDataUrl: uploadedImage || visualReference,
+          referenceSource: uploadedImage ? "upload" : visualReference ? "camera_or_screen" : null,
         }),
       });
       const payload = await response.json();
@@ -149,6 +167,7 @@ export function App() {
   function updateSpeechBubble(event) {
     if (event.type === "response.created") {
       setSpeechText("...");
+      liveAgentMessageIdRef.current = null;
       return;
     }
 
@@ -162,6 +181,7 @@ export function App() {
       ].includes(event.type)
     ) {
       setSpeechText((current) => compactSpeech(`${current === "..." || current === "Hello?" ? "" : current}${delta}`));
+      upsertLiveAgentMessage(delta);
       return;
     }
 
@@ -174,18 +194,32 @@ export function App() {
     ) {
       const finalText = event.transcript || event.text;
       if (finalText) setSpeechText(compactSpeech(finalText));
+      if (finalText) upsertLiveAgentMessage(finalText, { replace: true, done: true });
       return;
     }
 
     if (event.type === "response.done") {
       const text = extractRealtimeResponseText(event.response);
       if (text) setSpeechText(compactSpeech(text));
+      if (text) upsertLiveAgentMessage(text, { replace: true, done: true });
     }
   }
 
   function updateTranscript(event) {
-    if (event.type === "conversation.item.input_audio_transcription.completed" && event.transcript) {
-      appendTranscript("you", event.transcript);
+    if (
+      [
+        "conversation.item.input_audio_transcription.completed",
+        "conversation.item.input_audio_transcription.done",
+        "conversation.item.input_audio_transcription.delta",
+      ].includes(event.type) &&
+      (event.transcript || event.delta)
+    ) {
+      if (event.type.endsWith(".delta")) {
+        upsertLiveUserMessage(event.delta);
+      } else {
+        finalizeLiveUserMessage(event.transcript || event.delta);
+        appendTranscript("you", event.transcript || event.delta, { skipChat: true });
+      }
       return;
     }
 
@@ -193,17 +227,113 @@ export function App() {
       ["response.audio_transcript.done", "response.output_text.done", "response.text.done"].includes(event.type) &&
       (event.transcript || event.text)
     ) {
-      appendTranscript("agent", event.transcript || event.text);
+      appendTranscript("agent", event.transcript || event.text, { skipChat: true });
     }
   }
 
-  function appendTranscript(role, text) {
+  function appendTranscript(role, text, options = {}) {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (!clean) return;
     setTranscript((items) => {
       const previous = items[0];
       if (previous?.role === role && previous?.text === clean) return items;
       return [{ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, role, text: clean }, ...items].slice(0, 8);
+    });
+    if (!options.skipChat) appendChatMessage(role === "agent" ? "agent" : "user", clean, { source: "voice" });
+  }
+
+  function appendChatMessage(role, text, options = {}) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    setChatMessages((items) => {
+      const previous = items.at(-1);
+      if (previous?.role === role && previous?.text === clean && previous?.source === options.source) return items;
+      return [
+        ...items,
+        {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          role,
+          name: role === "agent" ? agentName : "you",
+          text: clean,
+          source: options.source || "text",
+        },
+      ].slice(-40);
+    });
+  }
+
+  function upsertLiveAgentMessage(text, options = {}) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    setChatMessages((items) => {
+      const id = liveAgentMessageIdRef.current || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      if (!liveAgentMessageIdRef.current && options.done && items.at(-1)?.role === "agent" && items.at(-1)?.text === clean) {
+        return items;
+      }
+      liveAgentMessageIdRef.current = options.done ? null : id;
+      const index = items.findIndex((item) => item.id === id);
+      const nextText = options.replace || index === -1 ? clean : `${items[index].text}${clean}`.replace(/\s+/g, " ").trim();
+      const nextItem = {
+        id,
+        role: "agent",
+        name: agentName,
+        text: nextText,
+        source: "voice",
+        live: !options.done,
+      };
+      if (index === -1) return [...items, nextItem].slice(-40);
+      const next = items.slice();
+      next[index] = nextItem;
+      return next;
+    });
+  }
+
+  function upsertLiveUserMessage(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    setChatMessages((items) => {
+      const previous = items.at(-1);
+      if (previous?.role === "user" && previous?.live) {
+        return [
+          ...items.slice(0, -1),
+          { ...previous, text: `${previous.text}${clean}`.replace(/\s+/g, " ").trim() },
+        ];
+      }
+      return [
+        ...items,
+        {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          role: "user",
+          name: "you",
+          text: clean,
+          source: "voice",
+          live: true,
+        },
+      ].slice(-40);
+    });
+  }
+
+  function finalizeLiveUserMessage(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    setChatMessages((items) => {
+      const previous = items.at(-1);
+      if (previous?.role === "user" && previous?.live) {
+        return [
+          ...items.slice(0, -1),
+          { ...previous, text: clean, live: false },
+        ];
+      }
+      return [
+        ...items,
+        {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          role: "user",
+          name: "you",
+          text: clean,
+          source: "voice",
+          live: false,
+        },
+      ].slice(-40);
     });
   }
 
@@ -254,6 +384,37 @@ export function App() {
       );
     } catch (error) {
       sendToolResult(event.call_id, { error: error.message }, "Tell the user OpenClaw failed, briefly and naturally.");
+    }
+  }
+
+  async function sendTextChat(event) {
+    event?.preventDefault();
+    const text = chatDraft.replace(/\s+/g, " ").trim();
+    if (!text || chatSending) return;
+
+    setChatDraft("");
+    appendChatMessage("user", text, { source: "text" });
+    setChatSending(true);
+
+    try {
+      const screenshot = await captureVisualFrame();
+      const response = await fetch("/api/openclaw/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: text,
+          context: "This came from the in-call text chat view. Reply like a concise, human text message unless the user asks for detail.",
+          responseStyle: "short, natural text chat reply",
+          screenshot,
+        }),
+      });
+      const payload = await response.json();
+      const reply = payload.ok ? extractOpenClawReply(payload) : payload.error || "OpenClaw failed.";
+      appendChatMessage("agent", reply, { source: "text" });
+    } catch (error) {
+      appendChatMessage("agent", `i hit an error: ${error.message}`, { source: "text" });
+    } finally {
+      setChatSending(false);
     }
   }
 
@@ -385,6 +546,12 @@ export function App() {
     return await captureFrame(cameraVideoRef.current) || await captureFrame(screenVideoRef.current);
   }
 
+  async function captureArtifactReference(kind) {
+    if (!["image", "video"].includes(kind)) return null;
+    if (!cameraStream && !screenStream) return null;
+    return captureVisualFrame();
+  }
+
   async function captureScreenFrame() {
     return captureFrame(screenVideoRef.current);
   }
@@ -406,7 +573,7 @@ export function App() {
   const hasArtifact = Boolean(artifact);
 
   return (
-    <main className={`voice-room ${live ? "is-live" : ""} ${hasArtifact ? "has-artifact" : ""}`}>
+    <main className={`voice-room ${live ? "is-live" : ""} ${hasArtifact ? "has-artifact" : ""} ${isChatView ? "is-chat-view" : ""}`}>
       <div className="grain" aria-hidden="true" />
       <div className="ambient-field" aria-hidden="true" />
 
@@ -421,71 +588,81 @@ export function App() {
         />
       </div>
 
-      <section className="agent-stage" aria-label={`${agentName} voice call`}>
-        <picture>
-          {live ? (
-            <video className="agent-scene" src="/girl-agent-kling.mp4" poster="/girl-agent-main.png" autoPlay muted loop playsInline aria-hidden="true" />
-          ) : (
-            <img className="agent-scene" src="/girl-agent-main.png" alt="" aria-hidden="true" />
-          )}
-        </picture>
-        {live ? <span className="speech">{speechText}</span> : null}
-        <div className={`call-controls ${live ? "is-expanded" : "is-idle"}`}>
-          {live ? (
-            <>
-              <button className={`media-pill ${screenStream ? "is-active" : ""}`} onClick={toggleScreenShare} aria-label={screenStream ? "Stop sharing screen" : "Share screen"}>
-                <ScreenShare size={18} strokeWidth={2.2} />
-                <span>{screenStream ? "screen on" : "share screen"}</span>
+      <section className={`agent-stage ${isChatView ? "is-chat-panel" : ""}`} aria-label={isChatView ? `${agentName} text chat` : `${agentName} voice call`}>
+        {isChatView ? (
+          <ChatView
+            agentName={agentName}
+            messages={chatMessages}
+            draft={chatDraft}
+            sending={chatSending}
+            setDraft={setChatDraft}
+            onSubmit={sendTextChat}
+            onCallView={() => setViewMode("call")}
+            onUpload={() => uploadInputRef.current?.click()}
+            onToggleCamera={toggleCamera}
+            cameraOn={Boolean(cameraStream)}
+            uploadedMedia={uploadedMedia}
+            avatarImageUrl={avatarImageUrl}
+            avatarInitials={avatarInitials}
+          />
+        ) : (
+          <>
+            <picture>
+              {live && avatarVideoUrl ? (
+                <video className="agent-scene" src={avatarVideoUrl} poster={avatarImageUrl} autoPlay muted loop playsInline aria-hidden="true" />
+              ) : (
+                <img className="agent-scene" src={avatarImageUrl} alt="" aria-hidden="true" />
+              )}
+            </picture>
+            {live ? <span className="speech">{speechText}</span> : null}
+            <div className={`call-controls ${live ? "is-expanded" : "is-idle"}`}>
+              {live ? (
+                <>
+                  <button className={`media-pill ${screenStream ? "is-active" : ""}`} onClick={toggleScreenShare} aria-label={screenStream ? "Stop sharing screen" : "Share screen"}>
+                    <ScreenShare size={18} strokeWidth={2.2} />
+                    <span>{screenStream ? "screen on" : "share screen"}</span>
+                  </button>
+                  <button className={`media-pill ${cameraStream ? "is-active" : ""}`} onClick={toggleCamera} aria-label={cameraStream ? "Turn camera off" : "Open camera"}>
+                    <Camera size={18} strokeWidth={2.2} />
+                    <span>{cameraStream ? "camera on" : "open camera"}</span>
+                  </button>
+                  <button className="media-pill" onClick={(event) => { event.stopPropagation(); uploadInputRef.current?.click(); }} aria-label="Send media">
+                    <ImagePlus size={18} strokeWidth={2.2} />
+                    <span>{uploadedMedia ? "media sent" : "send media"}</span>
+                  </button>
+                  <button className="media-pill" onClick={() => setViewMode("chat")} aria-label="Show live transcript">
+                    <MessageCircle size={18} strokeWidth={2.2} />
+                    <span>chat view</span>
+                  </button>
+                </>
+              ) : null}
+              <button className="call-button" onClick={toggleCall} aria-label={live ? "End voice call" : "Start voice call"}>
+                {live ? <PhoneOff size={20} strokeWidth={2.4} /> : <Phone size={20} strokeWidth={2.6} />}
+                <span>{live ? "END" : "CALL"}</span>
               </button>
-              <button className={`media-pill ${cameraStream ? "is-active" : ""}`} onClick={toggleCamera} aria-label={cameraStream ? "Turn camera off" : "Open camera"}>
-                <Camera size={18} strokeWidth={2.2} />
-                <span>{cameraStream ? "camera on" : "open camera"}</span>
-              </button>
-              <button className="media-pill" onClick={(event) => { event.stopPropagation(); uploadInputRef.current?.click(); }} aria-label="Send media">
-                <ImagePlus size={18} strokeWidth={2.2} />
-                <span>{uploadedMedia ? "media sent" : "send media"}</span>
-              </button>
-              <button className={`media-pill ${chatOpen ? "is-active" : ""}`} onClick={() => setChatOpen((value) => !value)} aria-label="Open chat">
-                <MessageCircle size={18} strokeWidth={2.2} />
-                <span>chat</span>
-              </button>
-            </>
-          ) : null}
-          <button className="call-button" onClick={toggleCall} aria-label={live ? "End voice call" : "Start voice call"}>
-            {live ? <PhoneOff size={20} strokeWidth={2.4} /> : <Phone size={20} strokeWidth={2.6} />}
-            <span>{live ? "END" : "CALL"}</span>
-          </button>
-        </div>
-        {uploadedMedia ? <div className="media-presence">{uploadedMedia.name}</div> : null}
-        {live ? (
-          <div className="voice-activity scene-activity" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-        ) : null}
-        {cameraStream ? (
-          <div className="camera-window" aria-label="Your camera preview">
-            <div className="camera-titlebar">
-              <span />
-              <b>you</b>
-              <button onClick={toggleCamera} aria-label="Turn camera off">off</button>
             </div>
-            <video ref={attachCameraPreview} muted playsInline autoPlay />
-          </div>
-        ) : null}
-        {live && (transcript.length || chatOpen) ? (
-          <div className="call-transcript" aria-label="Live call transcript">
-            {transcript.length ? transcript.slice(0, 4).map((item) => (
-              <p key={item.id} className={item.role}>
-                <span>{item.role === "agent" ? agentName : item.role}</span>
-                {item.text}
-              </p>
-            )) : <p className="system"><span>chat</span>initialized</p>}
-          </div>
-        ) : null}
+            {uploadedMedia ? <div className="media-presence">{uploadedMedia.name}</div> : null}
+            {live ? (
+              <div className="voice-activity scene-activity" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+            ) : null}
+            {cameraStream ? (
+              <div className="camera-window" aria-label="Your camera preview">
+                <div className="camera-titlebar">
+                  <span />
+                  <b>you</b>
+                  <button onClick={toggleCamera} aria-label="Turn camera off">off</button>
+                </div>
+                <video ref={attachCameraPreview} muted playsInline autoPlay />
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       {artifact ? (
@@ -598,6 +775,103 @@ function ArtifactRenderer({ artifact }) {
   return <div className="markdown-artifact" dangerouslySetInnerHTML={{ __html: markdownToHtml(markdown) }} />;
 }
 
+function ChatView({
+  agentName,
+  messages,
+  draft,
+  sending,
+  setDraft,
+  onSubmit,
+  onCallView,
+  onUpload,
+  onToggleCamera,
+  cameraOn,
+  uploadedMedia,
+  avatarImageUrl,
+  avatarInitials,
+}) {
+  return (
+    <div className="text-chat-view">
+      <div className="text-chat-topbar">
+        <div>
+          <span>{agentName}</span>
+          <b>live transcript</b>
+        </div>
+        <button onClick={onCallView} type="button">
+          <Phone size={15} strokeWidth={2.3} />
+          call view
+        </button>
+      </div>
+
+      <div className="text-chat-messages" aria-label="Text chat messages">
+        {messages.map((message) => (
+          <article key={message.id} className={`text-message ${message.role}`}>
+            <div className="text-avatar" aria-hidden="true">
+              {message.role === "agent" ? <AvatarImage src={avatarImageUrl} fallback={avatarInitials} /> : "YOU"}
+            </div>
+            <div>
+              <span>{message.role === "agent" ? agentName : "you"}</span>
+              <p>{message.text}</p>
+            </div>
+          </article>
+        ))}
+        {sending ? (
+          <article className="text-message agent is-typing">
+            <div className="text-avatar" aria-hidden="true"><AvatarImage src={avatarImageUrl} fallback={avatarInitials} /></div>
+            <div>
+              <span>{agentName}</span>
+              <p>typing...</p>
+            </div>
+          </article>
+        ) : null}
+      </div>
+
+      <form className="text-composer" onSubmit={onSubmit}>
+        <label className="sr-only" htmlFor="text-chat-input">Message</label>
+        <textarea
+          id="text-chat-input"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              onSubmit(event);
+            }
+          }}
+          placeholder="Message..."
+          rows={1}
+        />
+        <div className="composer-actions">
+          <button type="button" onClick={onUpload} aria-label="Attach media">
+            <Plus size={20} strokeWidth={2.2} />
+          </button>
+          <button type="button" aria-label="Mention agent">
+            <AtSign size={18} strokeWidth={2.2} />
+          </button>
+          <span>{uploadedMedia ? mediaUploadLabel(uploadedMedia) : "models"}</span>
+          <button type="button" onClick={onToggleCamera} className={cameraOn ? "is-active" : ""} aria-label="Toggle camera">
+            <Camera size={18} strokeWidth={2.2} />
+          </button>
+          <button type="button" aria-label="Model settings">
+            <SlidersHorizontal size={18} strokeWidth={2.2} />
+          </button>
+          <button type="button" aria-label="Voice input">
+            <Mic size={18} strokeWidth={2.2} />
+          </button>
+          <button type="submit" disabled={!draft.trim() || sending} aria-label="Send message">
+            <Send size={18} strokeWidth={2.2} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function AvatarImage({ src, fallback }) {
+  if (!src) return fallback || "AI";
+  return <img src={src} alt="" />;
+}
+
 function FileArtifact({ artifact }) {
   const url = artifact.fileUrl || artifact.pdfUrl || artifact.documentUrl;
   const mime = artifact.mimeType || artifact.contentType || "";
@@ -643,6 +917,21 @@ function extractRealtimeResponseText(response) {
     .filter(Boolean)
     .join(" ")
     .trim();
+}
+
+function extractOpenClawReply(payload) {
+  if (!payload) return "";
+  if (typeof payload.result === "string") return payload.result;
+  if (typeof payload.text === "string") return payload.text;
+  if (payload.result?.text) return payload.result.text;
+  if (Array.isArray(payload.result?.content)) {
+    return payload.result.content
+      .map((part) => typeof part?.text === "string" ? part.text : "")
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+  return "done";
 }
 
 function artifactTitle(artifact) {

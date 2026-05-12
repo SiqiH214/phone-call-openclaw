@@ -16,7 +16,7 @@ export default async function handler(_req, res) {
         {
           type: "function",
           name: "render_artifact",
-          description: "Open an artifact panel and render the requested artifact from the live voice conversation. Supports creating and editing images, HTML/docs/code/PDF/Word-style docs, music, and video; uploaded reference image/video media is attached by the browser automatically.",
+          description: "Open an artifact panel and render the requested artifact from the live voice conversation. Supports creating and editing images, HTML/docs/code/PDF/Word-style docs, music, and video. Uploaded reference media is attached automatically; if camera or screen share is on, the website can also attach the current frame as a reference image for image/video artifacts.",
           parameters: {
             type: "object",
             properties: {
@@ -66,6 +66,11 @@ export default async function handler(_req, res) {
       ],
       tool_choice: "auto",
       audio: {
+        input: {
+          transcription: {
+            model: process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe",
+          },
+        },
         output: {
           voice: realtimeVoice,
         },
