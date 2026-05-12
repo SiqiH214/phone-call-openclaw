@@ -171,11 +171,13 @@ export function App() {
       const readyArtifact = { ...payload, kind, prompt, status: payload.status || "ready", createdAt: Date.now() };
       setArtifact(readyArtifact);
       saveHistoryItem(readyArtifact);
+      setSpeechText(artifactSpeechFallback(readyArtifact));
       sendToolResult(event.call_id, payload, artifactToolInstruction(payload));
     } catch (error) {
       const payload = { kind, status: "error", error: error.message, prompt, createdAt: Date.now() };
       setArtifact(payload);
       saveHistoryItem(payload);
+      setSpeechText(artifactSpeechFallback(payload));
       sendToolResult(event.call_id, payload, artifactToolInstruction(payload));
     }
   }
@@ -575,6 +577,9 @@ export function App() {
   function sendToolResult(callId, payload, instructions = "Answer briefly and naturally.") {
     const channel = sessionRef.current?.channel;
     if (!channel || channel.readyState !== "open" || !callId) return;
+
+    const fallback = toolSpeechFallback(payload);
+    if (fallback) setSpeechText(fallback);
 
     channel.send(JSON.stringify({
       type: "conversation.item.create",
@@ -1161,6 +1166,22 @@ function artifactToolInstruction(payload) {
     return "Briefly tell the user the artifact has been queued and the panel is open.";
   }
   return "Briefly tell the user the artifact is ready in the panel. Keep it natural and short.";
+}
+
+function artifactSpeechFallback(artifact) {
+  if (artifact?.status === "error") return `Artifact hit an error: ${friendlyArtifactError(artifact.error)}`;
+  if (artifact?.status === "queued") return "Artifact is queued. The panel is open.";
+  if (artifact?.kind) return `${artifact.kind.toUpperCase()} is ready in the panel.`;
+  return "";
+}
+
+function toolSpeechFallback(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  if (payload.kind || payload.imageUrl || payload.videoUrl || payload.audioUrl || payload.fileUrl || payload.content) {
+    return artifactSpeechFallback(payload);
+  }
+  if (payload.error) return `Tool hit an error: ${friendlyArtifactError(payload.error)}`;
+  return "";
 }
 
 function friendlyArtifactError(error) {
