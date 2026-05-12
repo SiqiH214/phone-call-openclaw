@@ -123,6 +123,11 @@ export function App() {
       return;
     }
 
+    if (event.name === "web_search") {
+      await handleWebSearch(event, args);
+      return;
+    }
+
     if (event.name === "inspect_view") {
       await handleInspectView(event, args);
       return;
@@ -371,20 +376,61 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: args.question || "Help with this request.",
-          context: args.context || "",
+          context: openClawContext(args.context),
           responseStyle: args.responseStyle || "short natural spoken answer",
           screenshot,
         }),
       });
       const payload = await response.json();
+      const openClawArtifact = payload.ok ? extractOpenClawArtifact(payload, args.question || "") : null;
+      if (openClawArtifact) {
+        setArtifact(openClawArtifact);
+        setArtifactCollapsed(false);
+        saveHistoryItem(openClawArtifact);
+      }
       sendToolResult(
         event.call_id,
         payload.ok ? payload : { error: payload.error || "OpenClaw failed." },
-        "Speak OpenClaw's result back naturally and briefly. If it completed an action, say what changed."
+        openClawArtifact
+          ? "Speak OpenClaw's result naturally and mention that the artifact is open in the panel."
+          : "Speak OpenClaw's result back naturally and briefly. If it completed an action, say what changed."
       );
     } catch (error) {
       sendToolResult(event.call_id, { error: error.message }, "Tell the user OpenClaw failed, briefly and naturally.");
     }
+  }
+
+  async function handleWebSearch(event, args) {
+    const query = args.query || args.question || "Search the web for this.";
+    setEvents((items) => [{ type: "web.search", message: query }, ...items].slice(0, 3));
+    try {
+      const response = await fetch("/api/tools/web-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          context: openClawContext(args.context),
+          responseStyle: args.responseStyle || "short natural spoken answer with sources when useful",
+        }),
+      });
+      const payload = await response.json();
+      sendToolResult(
+        event.call_id,
+        payload.ok ? payload : { error: payload.error || "Web search failed." },
+        "Speak the web search result naturally and mention important source context when useful."
+      );
+    } catch (error) {
+      sendToolResult(event.call_id, { error: error.message }, "Tell the user web search failed, briefly and naturally.");
+    }
+  }
+
+  function openClawContext(extraContext = "") {
+    return [
+      extraContext,
+      uploadedMedia ? `Uploaded media available in the phone-call UI: ${uploadedMedia.name} (${uploadedMedia.type || "unknown type"}). If the task needs the actual file bytes, ask the phone-call surface or user to attach/pass it through the appropriate OpenClaw workflow.` : "",
+      cameraStream ? "Camera is currently on; the phone-call surface can provide a snapshot when visual context is needed." : "",
+      screenStream ? "Screen sharing is currently on; the phone-call surface can provide a screenshot when visual context is needed." : "",
+    ].filter(Boolean).join("\n\n");
   }
 
   async function sendTextChat(event) {
@@ -932,6 +978,73 @@ function extractOpenClawReply(payload) {
       .trim();
   }
   return "done";
+}
+
+function extractOpenClawArtifact(payload, prompt = "") {
+  const candidates = [
+    payload.artifact,
+    payload.result?.artifact,
+    parseMaybeJson(payload.result),
+    parseMaybeJson(payload.text),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const artifact = normalizeOpenClawArtifact(candidate, prompt);
+    if (artifact) return artifact;
+  }
+
+  const text = extractOpenClawReply(payload);
+  return artifactFromUrls(text, prompt);
+}
+
+function parseMaybeJson(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = stripArtifactFence(value);
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeOpenClawArtifact(value, prompt = "") {
+  if (!value || typeof value !== "object") return null;
+  const imageUrl = value.imageUrl || value.image_url || value.image?.url;
+  const videoUrl = value.videoUrl || value.video_url || value.video?.url;
+  const audioUrl = value.audioUrl || value.audio_url || value.audio?.url;
+  const fileUrl = value.fileUrl || value.file_url || value.url;
+  if (!imageUrl && !videoUrl && !audioUrl && !fileUrl && !value.content) return null;
+  return {
+    kind: value.kind || (imageUrl ? "image" : videoUrl ? "video" : audioUrl ? "audio" : "file"),
+    status: value.status || "ready",
+    prompt: value.prompt || prompt,
+    content: value.content || "",
+    imageUrl: imageUrl || "",
+    videoUrl: videoUrl || "",
+    audioUrl: audioUrl || "",
+    fileUrl: fileUrl || "",
+    mimeType: value.mimeType || value.contentType || "",
+    model: value.model || "openclaw",
+    createdAt: Date.now(),
+  };
+}
+
+function artifactFromUrls(text = "", prompt = "") {
+  const url = String(text).match(/https?:\/\/[^\s)'"<>]+/i)?.[0];
+  if (!url) return null;
+  const cleanUrl = url.replace(/[.,;:!?]+$/, "");
+  if (/\.(png|jpe?g|webp|gif)(?:$|\?)/i.test(cleanUrl)) {
+    return { kind: "image", status: "ready", imageUrl: cleanUrl, prompt, model: "openclaw", createdAt: Date.now() };
+  }
+  if (/\.(mp4|webm|mov)(?:$|\?)/i.test(cleanUrl)) {
+    return { kind: "video", status: "ready", videoUrl: cleanUrl, prompt, model: "openclaw", createdAt: Date.now() };
+  }
+  if (/\.(mp3|wav|m4a|ogg)(?:$|\?)/i.test(cleanUrl)) {
+    return { kind: "audio", status: "ready", audioUrl: cleanUrl, prompt, model: "openclaw", createdAt: Date.now() };
+  }
+  return null;
 }
 
 function artifactTitle(artifact) {

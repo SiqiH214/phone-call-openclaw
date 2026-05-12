@@ -8,6 +8,7 @@ A self-hostable realtime voice-call website for an OpenClaw agent. The browser t
 - Vercel API routes for OpenAI Realtime token minting and OpenClaw gateway status/actions.
 - Local Express server for running the same app against a local OpenClaw gateway.
 - Configurable agent name, owner name, avatar media, voice prompt, Realtime model/voice, OpenClaw URL, and artifact models.
+- OpenClaw-first tool routing for flexible media workflows, web search, files, browser work, and connected apps.
 
 ## Quick Start
 
@@ -107,6 +108,24 @@ OPENCLAW_CALL_SCOPES=operator.read,operator.write
 ```
 
 The current full preset expands to `operator.admin`, `operator.read`, `operator.write`, `operator.approvals`, and `operator.pairing`.
+
+## OpenClaw-First Agent Flow
+
+The phone site is a voice shell over OpenClaw, not a second limited artifact engine. The Realtime voice model should call `ask_openclaw` for agentic work, including:
+
+- web search and current research
+- t2i/i2i/t2v/i2v media generation
+- keyframe and multi-shot video planning
+- stitching or editing workflows
+- files, browser actions, GitHub, Slack, Linear, and server tasks
+
+`render_artifact` remains as a local fallback for simple one-step artifacts. When OpenClaw returns an artifact JSON payload or a direct image/video/audio URL, the phone UI opens it in the artifact panel.
+
+Tradeoffs: this is more flexible, but it can be slower than local one-shot routes, depends on the connected OpenClaw tools being configured, and needs a clear return convention for rich artifacts. Plain text answers still work even when no artifact URL is returned.
+
+## Web Search
+
+Voice calls include a `web_search` tool that routes through OpenClaw. Installers should enable whatever web-search capability their OpenClaw uses; the phone site does not hardcode a separate search provider.
 
 ## Camera And Screen Vision
 

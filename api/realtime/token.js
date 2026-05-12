@@ -16,7 +16,7 @@ export default async function handler(_req, res) {
         {
           type: "function",
           name: "render_artifact",
-          description: "Open an artifact panel and render the requested artifact from the live voice conversation. Supports creating and editing images, HTML/docs/code/PDF/Word-style docs, music, and video. Uploaded reference media is attached automatically; if camera or screen share is on, the website can also attach the current frame as a reference image for image/video artifacts.",
+          description: "Local fallback renderer for simple single-step artifacts. For agentic media workflows, t2v/i2v/keyframes/stitching, current web research, files, or OpenClaw tools, prefer ask_openclaw.",
           parameters: {
             type: "object",
             properties: {
@@ -37,7 +37,7 @@ export default async function handler(_req, res) {
         {
           type: "function",
           name: "ask_openclaw",
-          description: "Ask the connected OpenClaw agent to use its tools and connected apps such as Gmail, GitHub, Slack messaging, Linear issue/project management, filesystem, and server context.",
+          description: "Ask the connected OpenClaw agent to plan and execute with its full tools. Use for web search/research, files, GitHub, Slack, Linear, browser/server context, and flexible artifact/media workflows including image generation/editing, t2v, i2v, keyframes, stitching, and multi-step tasks.",
           parameters: {
             type: "object",
             properties: {
@@ -46,6 +46,21 @@ export default async function handler(_req, res) {
               responseStyle: { type: "string", description: "How the result should be spoken back." },
             },
             required: ["question"],
+            additionalProperties: false,
+          },
+        },
+        {
+          type: "function",
+          name: "web_search",
+          description: "Ask OpenClaw to search or research the web and return a sourced, current answer.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "The web search or research question." },
+              context: { type: "string", description: "Optional context from the voice conversation." },
+              responseStyle: { type: "string", description: "How the result should be spoken back." },
+            },
+            required: ["query"],
             additionalProperties: false,
           },
         },
