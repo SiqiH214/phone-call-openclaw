@@ -1,7 +1,7 @@
 import { fal } from "@fal-ai/client";
 import fs from "node:fs";
 import path from "node:path";
-import { agentAvatarImageUrl } from "../shared/channel.js";
+import { agentAvatarImageUrl, agentName } from "../shared/channel.js";
 
 const falVideoEndpoint = cleanModelId(process.env.FAL_VIDEO_MODEL || "bytedance/seedance-2.0/fast/text-to-video");
 const falImageToVideoEndpoint = cleanModelId(process.env.FAL_IMAGE_TO_VIDEO_MODEL || "fal-ai/kling-video/v3/standard/image-to-video");
@@ -105,6 +105,12 @@ async function renderImage(prompt, imageDataUrl, { useAgentAvatar = false } = {}
       body: JSON.stringify(body),
     });
   } catch (error) {
+    if (useAgentAvatar) {
+      return renderImageWithoutReference(agentAvatarFallbackPrompt(imagePrompt), {
+        fallbackFrom: endpoint,
+        fallbackReason: friendlyProviderError(error, "The avatar reference edit model rejected the prompt/reference pair."),
+      });
+    }
     throw new Error(friendlyProviderError(error, "Image generation failed. Try a more specific visual prompt, or upload a reference image."));
   }
 
@@ -119,6 +125,42 @@ async function renderImage(prompt, imageDataUrl, { useAgentAvatar = false } = {}
     prompt: finalPrompt,
     model: endpoint,
     referenceSource: useAgentAvatar ? "openclaw_avatar" : imageDataUrl ? "reference_image" : "text",
+  };
+}
+
+async function renderImageWithoutReference(prompt, { fallbackFrom = "", fallbackReason = "" } = {}) {
+  const body = {
+    prompt,
+    num_images: 1,
+    aspect_ratio: imageAspectRatio(),
+    resolution: process.env.FAL_IMAGE_RESOLUTION || "1K",
+    limit_generations: true,
+    output_format: "png",
+  };
+
+  let response;
+  try {
+    response = await falFetch(`https://fal.run/${falImageEndpoint}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new Error(friendlyProviderError(error, fallbackReason || "Image generation failed. Try a more specific visual prompt."));
+  }
+
+  const payload = await response.json();
+  const imageUrl = payload.images?.[0]?.url || payload.image?.url || payload.url;
+  if (!imageUrl) throw new Error("Image generation finished without an image. Try a more specific visual prompt.");
+
+  return {
+    kind: "image",
+    status: "ready",
+    imageUrl,
+    prompt,
+    model: falImageEndpoint,
+    referenceSource: "text_fallback",
+    fallbackFrom,
+    fallbackReason,
   };
 }
 
@@ -438,8 +480,17 @@ function shouldUseAgentAvatarReference(prompt = "") {
 function agentAvatarImagePrompt(prompt = "") {
   return [
     prompt,
-    "Use the attached OpenClaw avatar as the identity reference. Generate a new selfie/portrait of the same character/person, preserving the face identity and black minimalist styling. Keep the 3D stylized avatar / Pixar-like aesthetic from the reference. Do not generate an unrelated person. No text, no watermark.",
+    "Use the attached OpenClaw avatar as the identity reference. Generate a new portrait of the same character/person, preserving the face identity and black minimalist styling. Keep the stylized 3D avatar aesthetic from the reference. Do not generate an unrelated person. No text, no watermark.",
   ].join("\n\n");
+}
+
+function agentAvatarFallbackPrompt(prompt = "") {
+  return [
+    prompt,
+    `Create a polished stylized 3D portrait for ${agentName}, the OpenClaw voice agent.`,
+    "Use an elegant black minimalist operator aesthetic, expressive face, refined outfit, cinematic soft light, clean composition, no readable text, no watermark.",
+    "This is a text-to-image fallback because the avatar reference edit model rejected the provided reference image.",
+  ].join(" ");
 }
 
 async function resolveAgentAvatarReference() {
