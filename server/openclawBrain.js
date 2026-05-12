@@ -194,18 +194,30 @@ function extractGatewayResult(payload) {
   if (payload.message) return extractText(payload.message);
   if (payload.result && typeof payload.result === "object") return extractText(payload.result) || extractGatewayResult(payload.result);
   if (payload.response && typeof payload.response === "object") return extractText(payload.response) || extractGatewayResult(payload.response);
-  return "";
+  return extractText(payload);
 }
 
-function extractText(message) {
-  if (!message || typeof message !== "object") return "";
-  if (typeof message.text === "string") return message.text.trim();
-  if (!Array.isArray(message.content)) return "";
-  return message.content
-    .map((part) => part?.type === "text" && typeof part.text === "string" ? part.text : "")
-    .filter(Boolean)
-    .join("\n\n")
-    .trim();
+function extractText(value, seen = new Set()) {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    return value.map((item) => extractText(item, seen)).filter(Boolean).join("\n\n").trim();
+  }
+  if (typeof value !== "object") return "";
+  if (seen.has(value)) return "";
+  seen.add(value);
+
+  const direct = ["text", "content", "output", "markdown", "value", "final", "answer"];
+  for (const key of direct) {
+    if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+  }
+
+  const nested = ["content", "parts", "items", "messages", "message", "result", "response", "data"];
+  for (const key of nested) {
+    const text = extractText(value[key], seen);
+    if (text) return text;
+  }
+  return "";
 }
 
 async function withGateway(fn) {
