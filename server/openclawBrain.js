@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import WebSocket from "ws";
-import { callScopes, serviceName } from "../shared/channel.js";
+import { callScopes, openclawChannelName, openclawSessionKey, serviceName } from "../shared/channel.js";
 
 const defaultGateway = process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789";
 
@@ -39,7 +39,13 @@ function uid() {
 
 export async function askOpenClaw({ question, context, responseStyle, screenshot }) {
   const visualContext = screenshot ? await describeScreenshot(screenshot) : "";
+  const channelContext = [
+    `OpenClaw channel: ${openclawChannelName}`,
+    `Channel service: ${serviceName}`,
+    "Treat this as a normal OpenClaw conversation channel. Use the same durable memory and update rules that other OpenClaw channels use.",
+  ].join("\n");
   const message = [
+    channelContext,
     question,
     context ? `Context:\n${context}` : "",
     visualContext ? `Current screen:\n${visualContext}` : "",
@@ -49,7 +55,7 @@ export async function askOpenClaw({ question, context, responseStyle, screenshot
   return withGateway(async (client) => {
     const idempotencyKey = uid();
     const sent = await client.request("chat.send", {
-      sessionKey: "main",
+      sessionKey: openclawSessionKey,
       message,
       idempotencyKey,
     });

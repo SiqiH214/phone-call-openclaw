@@ -133,9 +133,10 @@ The Realtime voice model chooses between direct voice response, `recall_memory`,
 
 - Direct response: fast, conversational turns already grounded in the live call.
 - `recall_memory`: "do you remember..." questions, preferences, prior decisions, persona facts, and durable project context.
+- `remember_memory`: "remember this", preference updates, corrections, forget requests, and durable decisions.
 - `ask_openclaw`: tools, skills, MCP, files, apps, web, actions, and multi-step artifact work.
 
-`recall_memory` routes through OpenClaw because OpenClaw owns the durable memory layer. If a connected OpenClaw can recall it in chat, the voice call can ask for the same memory and speak it back naturally. This adds an OpenClaw round trip only when recall is needed; normal voice chat stays on the direct Realtime path.
+`recall_memory` and `remember_memory` route through OpenClaw because OpenClaw owns the durable memory layer. The phone call uses `OPENCLAW_SESSION_KEY` (default `main`) and `OPENCLAW_CHANNEL_NAME` (default `phone-call`) so it behaves like another OpenClaw channel, similar to Slack. If a connected OpenClaw can recall or update it in chat, the voice call can use the same shared memory and speak the result back naturally. This adds an OpenClaw round trip only when recall or memory update is needed; normal voice chat stays on the direct Realtime path.
 
 ## Web Search
 
@@ -186,6 +187,8 @@ The server can load OpenClaw persona, style, and memory context from environment
 - `OPENCLAW_MEMORY_MD`
 
 Local OpenClaw installs can also provide `/root/.openclaw/workspace/IDENTITY.md`, `/root/.openclaw/workspace/SOUL.md`, `/root/.openclaw/workspace/STYLE.md`, and markdown files under `/root/.openclaw/workspace/memory`.
+
+For shared channel memory, keep `OPENCLAW_SESSION_KEY=main` unless you intentionally want a separate conversation namespace. Set `OPENCLAW_CHANNEL_NAME` if you want OpenClaw memory logs to label this surface differently, for example `phone-call-47`.
 
 ## Security Notes
 

@@ -13,6 +13,8 @@ export const realtimeModel = clean(process.env.OPENAI_REALTIME_MODEL) || "gpt-re
 export const realtimeVoice = clean(process.env.OPENAI_REALTIME_VOICE) || "marin";
 export const openclawPublicUrl = clean(process.env.OPENCLAW_PUBLIC_URL);
 export const bridgeSecret = process.env.OPENCLAW_BRIDGE_SECRET || "";
+export const openclawChannelName = clean(process.env.OPENCLAW_CHANNEL_NAME) || "phone-call";
+export const openclawSessionKey = clean(process.env.OPENCLAW_SESSION_KEY) || "main";
 
 const fullOperatorScopes = [
   "operator.admin",
@@ -60,7 +62,7 @@ export function buildRealtimeInstructions(personaBlock = "") {
   return [
     clean(process.env.OPENCLAW_AGENT_VOICE_PROMPT) || defaultVoicePrompt,
     "You are a voice interface to OpenClaw. For agentic work, delegate to OpenClaw instead of trying to solve it inside the voice model.",
-    "Decide the lightest useful path for each turn: answer directly when the conversation already gives enough context, call recall_memory when the user asks about remembered facts/preferences/past decisions or durable project context, and call ask_openclaw when the request needs tools, skills, MCP, files, apps, web, artifacts, or action.",
+    "This phone call is an OpenClaw channel like Slack or another chat surface. Durable memory is shared with OpenClaw: call remember_memory when the user asks you to remember, update, or forget something, call recall_memory when the user asks about remembered facts/preferences/past decisions or durable project context, and call ask_openclaw when the request needs tools, skills, MCP, files, apps, web, artifacts, or action. Answer directly only when the conversation already gives enough context and no memory write/recall/tool is needed.",
     "When the user asks for complex artifacts or media workflows such as image generation/editing, t2v, i2v, keyframes, stitching, multi-shot videos, documents, code, files, browser actions, or anything that may require multiple steps, call ask_openclaw immediately. Include the user's exact goal and any visible/uploaded/camera context. OpenClaw owns planning and tool execution, including any skills, MCP servers, connectors, apps, and local tools installed in that OpenClaw.",
     "Use render_artifact only for simple local fallback artifacts when the user clearly wants an immediate single image/doc/html/code/music/video and no OpenClaw tools are needed. For a selfie/photo/portrait of you, 47, or the OpenClaw avatar, prefer ask_openclaw so OpenClaw can use its identity/avatar reference workflow.",
     "When the user asks to search the web, look something up, find current information, compare sources, or research, call web_search or ask_openclaw immediately. Do not invent web results.",

@@ -66,6 +66,21 @@ export default async function handler(_req, res) {
         },
         {
           type: "function",
+          name: "remember_memory",
+          description: "Ask OpenClaw to save, update, or forget durable memory using the same shared memory layer as other OpenClaw channels. Use when the user says to remember something, update a preference, record a decision, or forget/correct old memory.",
+          parameters: {
+            type: "object",
+            properties: {
+              memory: { type: "string", description: "The memory change the user requested, including whether to save, update, correct, or forget it." },
+              context: { type: "string", description: "Optional context from the current voice conversation." },
+              responseStyle: { type: "string", description: "How the memory update should be acknowledged." },
+            },
+            required: ["memory"],
+            additionalProperties: false,
+          },
+        },
+        {
+          type: "function",
           name: "web_search",
           description: "Ask OpenClaw to search or research the web and return a sourced, current answer.",
           parameters: {

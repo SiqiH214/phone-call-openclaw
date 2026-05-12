@@ -154,6 +154,21 @@ async function mintRealtimeToken(_req, res) {
         },
         {
           type: "function",
+          name: "remember_memory",
+          description: "Ask OpenClaw to save, update, or forget durable memory using the same shared memory layer as other OpenClaw channels. Use when the user says to remember something, update a preference, record a decision, or forget/correct old memory.",
+          parameters: {
+            type: "object",
+            properties: {
+              memory: { type: "string", description: "The memory change the user requested, including whether to save, update, correct, or forget it." },
+              context: { type: "string", description: "Optional context from the current voice conversation." },
+              responseStyle: { type: "string", description: "How the memory update should be acknowledged." },
+            },
+            required: ["memory"],
+            additionalProperties: false,
+          },
+        },
+        {
+          type: "function",
           name: "web_search",
           description: "Ask OpenClaw to search or research the web and return a sourced, current answer.",
           parameters: {
@@ -280,14 +295,18 @@ app.get("/api/tools/get-time", (_req, res) => {
   });
 });
 
-app.post("/api/tools/remember", (req, res) => {
-  const { memory = "" } = req.body || {};
-  res.json({
-    ok: true,
-    status: "accepted",
-    memory,
-    note: "Memory capture acknowledged by the voice surface. Persistent OpenClaw memory writes should route through ask_openclaw.",
-  });
+app.post("/api/tools/remember", async (req, res) => {
+  const { memory = "", context = "", responseStyle = "" } = req.body || {};
+  try {
+    const result = await askOpenClaw({
+      question: `Update shared OpenClaw memory from the phone-call channel. Save, update, correct, or forget memory according to the user's request. Use the same durable memory system and policies used by other OpenClaw channels such as Slack.\n${memory}`,
+      context,
+      responseStyle: responseStyle || "Briefly acknowledge the memory update. If it should not be stored, explain why briefly.",
+    });
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.post("/api/tools/web-search", async (req, res) => {

@@ -128,6 +128,11 @@ export function App() {
       return;
     }
 
+    if (event.name === "remember_memory") {
+      await handleMemoryWrite(event, args);
+      return;
+    }
+
     if (event.name === "web_search") {
       await handleWebSearch(event, args);
       return;
@@ -426,6 +431,30 @@ export function App() {
       );
     } catch (error) {
       sendToolResult(event.call_id, { error: error.message }, "Tell the user memory recall failed, briefly and naturally.");
+    }
+  }
+
+  async function handleMemoryWrite(event, args) {
+    const memory = args.memory || args.note || args.fact || "Update memory from this conversation.";
+    setEvents((items) => [{ type: "memory.write", message: memory }, ...items].slice(0, 3));
+    try {
+      const response = await fetch("/api/tools/remember", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memory,
+          context: openClawContext(args.context),
+          responseStyle: args.responseStyle || "short natural spoken acknowledgement",
+        }),
+      });
+      const payload = await response.json();
+      sendToolResult(
+        event.call_id,
+        payload.ok ? payload : { error: payload.error || "Memory update failed." },
+        "Acknowledge the shared OpenClaw memory update naturally. If it failed, say so briefly."
+      );
+    } catch (error) {
+      sendToolResult(event.call_id, { error: error.message }, "Tell the user memory update failed, briefly and naturally.");
     }
   }
 
