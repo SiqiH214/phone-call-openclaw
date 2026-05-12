@@ -54,13 +54,21 @@ export async function askOpenClaw({ question, context, responseStyle, screenshot
 
   return withGateway(async (client) => {
     const idempotencyKey = uid();
+    const finalTarget = { runId: idempotencyKey, idempotencyKey };
+    const finalWait = waitForFinal(client, finalTarget, 120000);
     const sent = await client.request("chat.send", {
       sessionKey: openclawSessionKey,
       message,
       idempotencyKey,
     });
-    const runId = sent?.runId || idempotencyKey;
-    const result = await waitForFinal(client, runId, 120000);
+    const immediateResult = extractGatewayResult(sent);
+    if (immediateResult) {
+      finalWait.cancel();
+      return { result: immediateResult };
+    }
+
+    finalTarget.runId = sent?.runId || sent?.id || sent?.message?.runId || idempotencyKey;
+    const result = await finalWait.promise;
     return { result };
   });
 }
@@ -117,29 +125,76 @@ function extractResponseText(payload) {
     .trim();
 }
 
-function waitForFinal(client, runId, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      unsubscribe();
-      reject(new Error("OpenClaw tool call timed out."));
+function waitForFinal(client, target, timeoutMs) {
+  let unsubscribe = () => {};
+  let timer;
+  let settled = false;
+
+  const finish = (fn, value) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    unsubscribe();
+    fn(value);
+  };
+
+  const promise = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
+      finish(reject, new Error("OpenClaw tool call timed out."));
     }, timeoutMs);
 
-    const unsubscribe = client.onEvent((event) => {
+    unsubscribe = client.onEvent((event) => {
       if (event.event !== "chat") return;
       const payload = event.payload;
-      if (!payload || payload.runId !== runId) return;
-      if (payload.state === "final") {
-        clearTimeout(timer);
-        unsubscribe();
-        resolve(extractText(payload.message) || "OpenClaw finished.");
+      if (!payload || !matchesRun(payload, target)) return;
+      if (isFinalState(payload.state)) {
+        finish(resolve, extractGatewayResult(payload) || "OpenClaw finished.");
       }
-      if (payload.state === "error") {
-        clearTimeout(timer);
-        unsubscribe();
-        reject(new Error(payload.errorMessage || "OpenClaw tool call failed."));
+      if (isErrorState(payload.state)) {
+        finish(reject, new Error(payload.errorMessage || "OpenClaw tool call failed."));
       }
     });
   });
+
+  return {
+    promise,
+    cancel() {
+      finish(() => {}, undefined);
+    },
+  };
+}
+
+function matchesRun(payload, target) {
+  const ids = [
+    payload.runId,
+    payload.id,
+    payload.message?.runId,
+    payload.request?.runId,
+    payload.idempotencyKey,
+    payload.request?.idempotencyKey,
+    payload.message?.idempotencyKey,
+  ].filter(Boolean);
+  return ids.includes(target.runId) || ids.includes(target.idempotencyKey);
+}
+
+function isFinalState(state) {
+  return ["final", "done", "completed", "complete", "success"].includes(String(state || "").toLowerCase());
+}
+
+function isErrorState(state) {
+  return ["error", "failed", "failure"].includes(String(state || "").toLowerCase());
+}
+
+function extractGatewayResult(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  if (typeof payload.result === "string") return payload.result.trim();
+  if (typeof payload.text === "string") return payload.text.trim();
+  if (typeof payload.output === "string") return payload.output.trim();
+  if (typeof payload.response === "string") return payload.response.trim();
+  if (payload.message) return extractText(payload.message);
+  if (payload.result && typeof payload.result === "object") return extractText(payload.result) || extractGatewayResult(payload.result);
+  if (payload.response && typeof payload.response === "object") return extractText(payload.response) || extractGatewayResult(payload.response);
+  return "";
 }
 
 function extractText(message) {
