@@ -1,7 +1,6 @@
 import { fal } from "@fal-ai/client";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { agentAvatarImageUrl } from "../shared/channel.js";
 
 const falVideoEndpoint = cleanModelId(process.env.FAL_VIDEO_MODEL || "bytedance/seedance-2.0/fast/text-to-video");
@@ -10,9 +9,7 @@ const falVideoEditEndpoint = cleanModelId(process.env.FAL_VIDEO_EDIT_MODEL || "f
 const falImageEndpoint = cleanModelId(process.env.FAL_IMAGE_MODEL || "fal-ai/nano-banana-2");
 const falImageEditEndpoint = cleanModelId(process.env.FAL_IMAGE_EDIT_MODEL || "fal-ai/nano-banana/edit");
 const falMusicEndpoint = cleanModelId(process.env.FAL_MUSIC_MODEL || "fal-ai/minimax-music/v2.6");
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, "..");
-const openclawAvatarPath = path.join(rootDir, "public", "identity", "openclaw-avatar.jpg");
+const publicDir = path.resolve(process.cwd(), "public");
 const allowedFalVideoEndpoints = new Set([
   "bytedance/seedance-2.0/fast/text-to-video",
   "bytedance/seedance-2.0/text-to-video",
@@ -450,11 +447,8 @@ async function resolveAgentAvatarReference() {
   if (/^https?:\/\//i.test(source)) return source;
   if (source.startsWith("data:image/")) return uploadDataUrlForFal(source, "agent-avatar.png");
   if (source.startsWith("/")) {
-    const localPath = path.join(rootDir, "public", source.replace(/^\/+/, ""));
+    const localPath = path.join(publicDir, source.replace(/^\/+/, ""));
     if (fs.existsSync(localPath)) return uploadLocalFileForFal(localPath, path.basename(localPath), mimeForPath(localPath));
-  }
-  if (fs.existsSync(openclawAvatarPath)) {
-    return uploadLocalFileForFal(openclawAvatarPath, "openclaw-avatar.jpg", "image/jpeg");
   }
   throw new Error("Agent avatar reference is not configured. Set PUBLIC_AGENT_AVATAR_IMAGE_URL or OPENCLAW_IDENTITY_AVATAR_URL.");
 }
