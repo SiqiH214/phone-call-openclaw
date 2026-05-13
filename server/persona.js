@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 
 const localPersonaPaths = {
   identity: "/root/.openclaw/workspace/IDENTITY.md",
@@ -49,6 +50,15 @@ export function loadPersona() {
   };
 }
 
+export function personaMetadata(persona = loadPersona()) {
+  return {
+    identity: sectionMetadata(persona.identity),
+    soul: sectionMetadata(persona.soul),
+    style: sectionMetadata(persona.style),
+    memory: sectionMetadata(persona.memory),
+  };
+}
+
 export function personaInstructionBlock() {
   const persona = loadPersona();
   const sections = [
@@ -64,4 +74,12 @@ export function personaInstructionBlock() {
     "Use the following OpenClaw persona/style/memory context as private grounding. Do not recite it unless the user explicitly asks. Let it shape your voice, taste, memory, and artifact decisions.",
     sections.join("\n\n---\n\n"),
   ].join("\n\n");
+}
+
+function sectionMetadata(value = "") {
+  const text = String(value || "");
+  return {
+    chars: text.length,
+    hash: text ? createHash("sha256").update(text).digest("hex").slice(0, 12) : "",
+  };
 }

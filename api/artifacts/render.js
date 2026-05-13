@@ -21,10 +21,12 @@ export default async function handler(req, res) {
     mediaDataUrl = null,
     mediaType = null,
     mediaName = null,
+    referenceSource = null,
+    videoModelPlan = null,
   } = req.body || {};
 
   try {
-    const artifact = await renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName });
+    const artifact = await renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName, referenceSource, videoModelPlan });
     res.status(200).json(artifact);
   } catch (error) {
     res.status(500).json({ kind, status: "error", error: error.message });

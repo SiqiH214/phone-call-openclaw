@@ -106,6 +106,10 @@ OPENCLAW_CALL_SCOPES=operator.read,operator.write
 
 The current full preset expands to `operator.admin`, `operator.read`, `operator.write`, `operator.approvals`, and `operator.pairing`.
 
+## MCP And Connected Tools
+
+The website routes MCP/tool requests through the connected OpenClaw gateway. When the user asks to use MCP, connectors, GitHub, Gmail, Slack, Linear, Vercel, Sentry, Figma, files, repos, or other configured tools, the Realtime layer calls OpenClaw instead of guessing locally. The actual MCP servers must be configured in OpenClaw; this web app passes the task, active session key, optional screen/camera context, and operator scopes through the gateway.
+
 ## Camera And Screen Vision
 
 The browser does not continuously stream camera video to OpenClaw. When the user asks the voice agent to look, see, inspect the camera, or inspect the shared screen, the site captures a single PNG/JPEG frame and attaches it directly to the active OpenAI Realtime conversation as an `input_image`.

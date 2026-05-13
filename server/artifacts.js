@@ -22,17 +22,18 @@ const allowedFalVideoEndpoints = new Set([
   "fal-ai/wan/v2.7/edit-video",
 ]);
 
-export async function renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName }) {
-  const referenceImage = imageDataUrl || (mediaType?.startsWith("image/") ? mediaDataUrl : null);
-  const referenceVideo = mediaType?.startsWith("video/") ? mediaDataUrl : null;
+export async function renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName, referenceSource, videoModelPlan }) {
   const artifactPrompt = normalizePromptForKind(kind, prompt);
+  const forceAvatarReference = kind === "image" && shouldUseAgentAvatarReference(artifactPrompt);
+  const referenceImage = forceAvatarReference && referenceSource !== "upload" ? null : imageDataUrl || (mediaType?.startsWith("image/") ? mediaDataUrl : null);
+  const referenceVideo = mediaType?.startsWith("video/") ? mediaDataUrl : null;
 
   if (kind === "image") {
     return renderImage(artifactPrompt, referenceImage);
   }
 
   if (kind === "video") {
-    return createVideo(artifactPrompt, { referenceImage, referenceVideo, mediaName });
+    return createVideo(artifactPrompt, { referenceImage, referenceVideo, mediaName, videoModelPlan });
   }
 
   if (kind === "music" || kind === "audio") {
@@ -173,8 +174,8 @@ async function renderTextArtifact({ kind, prompt, format }) {
   };
 }
 
-async function createVideo(prompt, { referenceImage, referenceVideo, mediaName } = {}) {
-  const endpoint = videoEndpointForInput({ referenceImage, referenceVideo });
+async function createVideo(prompt, { referenceImage, referenceVideo, mediaName, videoModelPlan } = {}) {
+  const endpoint = videoEndpointForInput({ referenceImage, referenceVideo, videoModelPlan });
   const referenceImageUrl = referenceImage ? await uploadDataUrlForFal(referenceImage, mediaName || "reference.png") : null;
   const referenceVideoUrl = referenceVideo ? await uploadDataUrlForFal(referenceVideo, mediaName || "reference.mp4") : null;
   const input = falVideoInput(prompt, endpoint, { referenceImage: referenceImageUrl, referenceVideo: referenceVideoUrl, mediaName });
@@ -191,6 +192,7 @@ async function createVideo(prompt, { referenceImage, referenceVideo, mediaName }
       status_url: submitted.status_url,
     },
     prompt,
+    modelPlan: sanitizeVideoModelPlan(videoModelPlan),
     responseUrl: submitted.response_url,
     statusUrl: submitted.status_url,
   });
@@ -295,7 +297,7 @@ function dataUrlToBuffer(dataUrl) {
 
 function falVideoInput(prompt, endpoint, { referenceImage, referenceVideo } = {}) {
   const duration = process.env.FAL_VIDEO_DURATION || "5";
-  const aspectRatio = process.env.FAL_VIDEO_ASPECT_RATIO || "16:9";
+  const aspectRatio = videoAspectRatio(prompt);
 
   if (referenceVideo) {
     return {
@@ -315,7 +317,7 @@ function falVideoInput(prompt, endpoint, { referenceImage, referenceVideo } = {}
         start_image_url: referenceImage,
         duration: process.env.FAL_IMAGE_TO_VIDEO_DURATION || "5",
         aspect_ratio: aspectRatio,
-        generate_audio: false,
+        generate_audio: parseBoolean(process.env.FAL_IMAGE_TO_VIDEO_AUDIO, true),
         negative_prompt: "large motion, big camera move, distorted face, extra fingers, low quality, flicker, watermark, logo",
       };
     }
@@ -324,7 +326,7 @@ function falVideoInput(prompt, endpoint, { referenceImage, referenceVideo } = {}
       prompt,
       image_url: referenceImage,
       resolution: process.env.FAL_IMAGE_TO_VIDEO_RESOLUTION || "720p",
-      aspect_ratio: process.env.FAL_IMAGE_TO_VIDEO_ASPECT_RATIO || "auto",
+      aspect_ratio: process.env.FAL_IMAGE_TO_VIDEO_ASPECT_RATIO || aspectRatio,
       negative_prompt: "large motion, big camera move, distorted face, extra fingers, low quality, flicker, watermark, logo",
     };
   }
@@ -334,6 +336,7 @@ function falVideoInput(prompt, endpoint, { referenceImage, referenceVideo } = {}
       prompt,
       duration: duration === "4" ? "5" : duration,
       aspect_ratio: aspectRatio,
+      generate_audio: parseBoolean(process.env.FAL_VIDEO_AUDIO, true),
       negative_prompt: "blur, distort, low quality, flicker, watermark, logo",
     };
   }
@@ -362,7 +365,7 @@ function falAsyncPayload({ kind, endpoint, requestId, status, result, prompt, st
     audioId: kind === "music" || kind === "audio" ? requestId : undefined,
     requestId,
     videoUrl: kind === "video" && ready ? mediaUrl : null,
-    audioUrl: (kind === "music" || kind === "audio") && ready ? mediaUrl : null,
+    audioUrl: (kind === "music" || kind === "audio") && ready ? mediaUrl : kind === "video" && ready ? mediaUrlFrom(resultAudio) : null,
     prompt: result?.prompt || prompt,
     model: endpoint,
     statusUrl: status?.status_url || statusUrl,
@@ -388,14 +391,55 @@ function normalizeFalEndpoint(endpoint) {
   return endpoint;
 }
 
-function videoEndpointForInput({ referenceImage, referenceVideo } = {}) {
-  if (referenceVideo) return cleanModelId(process.env.FAL_VIDEO_EDIT_MODEL || falVideoEditEndpoint);
-  if (referenceImage) return cleanModelId(process.env.FAL_IMAGE_TO_VIDEO_MODEL || falImageToVideoEndpoint);
-  return normalizeFalEndpoint(cleanModelId(process.env.FAL_VIDEO_MODEL || falVideoEndpoint));
+function videoEndpointForInput({ referenceImage, referenceVideo, videoModelPlan } = {}) {
+  const plan = sanitizeVideoModelPlan(videoModelPlan);
+  if (referenceVideo) return plan.videoEditModel || cleanModelId(process.env.FAL_VIDEO_EDIT_MODEL || falVideoEditEndpoint);
+  if (referenceImage) return plan.imageToVideoModel || cleanModelId(process.env.FAL_IMAGE_TO_VIDEO_MODEL || falImageToVideoEndpoint);
+  return normalizeFalEndpoint(plan.videoModel || cleanModelId(process.env.FAL_VIDEO_MODEL || falVideoEndpoint));
 }
 
 function cleanModelId(value) {
   return String(value || "").replace(/\\[rnt]/g, "").replace(/[\r\n\t]/g, "").trim();
+}
+
+function parseBoolean(value, fallback) {
+  const clean = String(value || "").replace(/[\r\n\t]/g, "").trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(clean)) return true;
+  if (["0", "false", "no", "off"].includes(clean)) return false;
+  return fallback;
+}
+
+function sanitizeVideoModelPlan(plan = {}) {
+  if (!plan || typeof plan !== "object") return {};
+  return {
+    videoModel: allowedTextToVideoModel(plan.videoModel),
+    imageToVideoModel: allowedImageToVideoModel(plan.imageToVideoModel),
+    videoEditModel: allowedVideoEditModel(plan.videoEditModel),
+    reason: String(plan.reason || "").replace(/[\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, 180),
+  };
+}
+
+function allowedTextToVideoModel(value) {
+  const model = cleanModelId(value);
+  return [
+    "bytedance/seedance-2.0/fast/text-to-video",
+    "bytedance/seedance-2.0/text-to-video",
+    "fal-ai/kling-video/v1/standard/text-to-video",
+  ].includes(model) ? model : "";
+}
+
+function allowedImageToVideoModel(value) {
+  const model = cleanModelId(value);
+  return [
+    "fal-ai/kling-video/v3/standard/image-to-video",
+    "fal-ai/kling-video/v3/pro/image-to-video",
+    "fal-ai/kling-video/v3/4k/image-to-video",
+  ].includes(model) ? model : "";
+}
+
+function allowedVideoEditModel(value) {
+  const model = cleanModelId(value);
+  return model === "fal-ai/wan/v2.7/edit-video" ? model : "";
 }
 
 function resolveAsyncEndpoint(kind, endpoint) {
@@ -434,7 +478,7 @@ function normalizeImagePrompt(prompt = "") {
 
 function shouldUseAgentAvatarReference(prompt = "") {
   const text = String(prompt || "").toLowerCase();
-  return /自拍|你的自拍|你的照片|你自己|你.*自拍|给自己|selfie|avatar|openclaw avatar|47_h|47\b|agent selfie|your (photo|portrait|selfie|image|avatar)|photo of you|portrait of you|image of you/.test(text);
+  return /自拍|你的自拍|你的照片|你自己|你.*自拍|给自己|selfie|avatar|openclaw avatar|47_h|47\b|agent selfie|make me (an? )?(image|photo|portrait|selfie)|image of me|photo of me|portrait of me|selfie of me|my (photo|portrait|selfie|avatar)|your (photo|portrait|selfie|image|avatar)|photo of you|portrait of you|image of you/.test(text);
 }
 
 function agentAvatarImagePrompt(prompt = "") {
@@ -448,6 +492,24 @@ function imageAspectRatio() {
   const ratio = cleanModelId(process.env.FAL_IMAGE_ASPECT_RATIO || "16:9");
   const allowed = new Set(["21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"]);
   return allowed.has(ratio) ? ratio : "16:9";
+}
+
+function videoAspectRatio(prompt = "") {
+  const configured = cleanModelId(process.env.FAL_VIDEO_ASPECT_RATIO || "");
+  const allowed = new Set(["21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"]);
+  if (allowed.has(configured)) return configured;
+
+  const text = String(prompt || "").toLowerCase();
+  if (/\b(9:16|vertical|portrait|reels?|tiktok|shorts?|story|phone video|mobile video)\b|竖屏|竖版|小红书|抖音|视频号/.test(text)) {
+    return "9:16";
+  }
+  if (/\b(1:1|square|album cover|profile)\b|方形|正方形/.test(text)) {
+    return "1:1";
+  }
+  if (/\b(4:5|feed post|instagram post)\b/.test(text)) {
+    return "4:5";
+  }
+  return "16:9";
 }
 
 function friendlyProviderError(error, fallback) {

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export function loadPersonaFromEnv() {
   const identity = (process.env.OPENCLAW_IDENTITY_MD || "").trim();
   const soul = (process.env.OPENCLAW_SOUL_MD || "").trim();
@@ -18,6 +20,15 @@ export function loadPersonaFromEnv() {
   };
 }
 
+export function personaMetadata(persona = loadPersonaFromEnv()) {
+  return {
+    identity: sectionMetadata(persona.identity),
+    soul: sectionMetadata(persona.soul),
+    style: sectionMetadata(persona.style),
+    memory: sectionMetadata(persona.memory),
+  };
+}
+
 export function personaInstructionBlock() {
   const persona = loadPersonaFromEnv();
   const sections = [
@@ -33,4 +44,12 @@ export function personaInstructionBlock() {
     "Use the following OpenClaw persona/style/memory context as private grounding. Do not recite it unless the user explicitly asks. Let it shape your voice, taste, memory, and artifact decisions.",
     sections.join("\n\n---\n\n"),
   ].join("\n\n");
+}
+
+function sectionMetadata(value = "") {
+  const text = String(value || "");
+  return {
+    chars: text.length,
+    hash: text ? createHash("sha256").update(text).digest("hex").slice(0, 12) : "",
+  };
 }

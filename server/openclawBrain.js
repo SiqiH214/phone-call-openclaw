@@ -37,11 +37,13 @@ function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export async function askOpenClaw({ question, context, responseStyle, screenshot }) {
+export async function askOpenClaw({ question, context, ownerContext, responseStyle, screenshot, sessionKey = "main", artifactRequest = null }) {
   const visualContext = screenshot ? await describeScreenshot(screenshot) : "";
   const message = [
     question,
+    ownerContext ? `Channel owner context:\n${ownerContext}` : "",
     context ? `Context:\n${context}` : "",
+    artifactRequest ? artifactRequestInstruction(artifactRequest) : "",
     visualContext ? `Current screen:\n${visualContext}` : "",
     responseStyle ? `Spoken style:\n${responseStyle}` : "Spoken style:\nshort, natural, useful",
   ].filter(Boolean).join("\n\n");
@@ -49,14 +51,34 @@ export async function askOpenClaw({ question, context, responseStyle, screenshot
   return withGateway(async (client) => {
     const idempotencyKey = uid();
     const sent = await client.request("chat.send", {
-      sessionKey: "main",
+      sessionKey: cleanSessionKey(sessionKey),
       message,
       idempotencyKey,
     });
     const runId = sent?.runId || idempotencyKey;
     const result = await waitForFinal(client, runId, 120000);
-    return { result };
+    return { result, artifact: extractArtifactFromOpenClawResult(result, artifactRequest?.kind) };
   });
+}
+
+function artifactRequestInstruction(artifactRequest) {
+  const kind = artifactRequest?.kind || "artifact";
+  const prompt = artifactRequest?.prompt || "";
+  const task = artifactRequest?.taskKey ? `Task: ${artifactRequest.taskKey}. Treat this as a new artifact task.` : "Treat this as a new artifact task.";
+  const reference = artifactRequest?.referenceSource ? `Reference source: ${artifactRequest.referenceSource}.` : "";
+  return [
+    "Artifact request:",
+    task,
+    `Kind: ${kind}`,
+    `Prompt: ${prompt}`,
+    reference,
+    "If you create or locate a finished image, video, audio, PDF, document, or HTML artifact, return the direct URL in your final answer.",
+    "Prefer a concise final answer with any artifact URL plainly visible.",
+  ].filter(Boolean).join("\n");
+}
+
+function cleanSessionKey(value) {
+  return cleanHeaderValue(value || "main").replace(/[^a-zA-Z0-9:._-]/g, "-").slice(0, 80) || "main";
 }
 
 async function describeScreenshot(screenshot) {
@@ -145,6 +167,69 @@ function extractText(message) {
     .filter(Boolean)
     .join("\n\n")
     .trim();
+}
+
+function extractArtifactFromOpenClawResult(result, preferredKind) {
+  const text = typeof result === "string" ? result : JSON.stringify(result || "");
+  const jsonArtifact = extractJsonArtifact(text);
+  if (jsonArtifact) return normalizeArtifact(jsonArtifact, preferredKind);
+
+  const urls = extractUrls(text);
+  const mediaUrl = urls.find((url) => artifactKindFromUrl(url)) || urls[0];
+  if (!mediaUrl) return null;
+  const kind = artifactKindFromUrl(mediaUrl) || preferredKind || "doc";
+  return normalizeArtifact({ kind, url: mediaUrl, prompt: text.slice(0, 240) }, preferredKind);
+}
+
+function extractJsonArtifact(text) {
+  const candidates = [
+    text,
+    ...(text.match(/```(?:json)?\s*([\s\S]*?)```/gi) || []).map((block) => block.replace(/```(?:json)?/i, "").replace(/```$/, "").trim()),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && (parsed.imageUrl || parsed.videoUrl || parsed.audioUrl || parsed.fileUrl || parsed.url)) return parsed;
+    } catch {
+      // Continue trying other candidates.
+    }
+  }
+  return null;
+}
+
+function extractUrls(text) {
+  return Array.from(new Set(
+    String(text || "")
+      .match(/https?:\/\/[^\s<>)"'`]+/gi) || []
+  )).map((url) => url.replace(/[.,;:!?]+$/, ""));
+}
+
+function artifactKindFromUrl(url) {
+  const cleanUrl = String(url || "").split("?")[0].toLowerCase();
+  if (/\.(png|jpe?g|webp|gif|avif|heic)$/.test(cleanUrl)) return "image";
+  if (/\.(mp4|webm|mov|m4v)$/.test(cleanUrl)) return "video";
+  if (/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(cleanUrl)) return "music";
+  if (/\.(pdf)$/.test(cleanUrl)) return "pdf";
+  if (/\.(docx?|md|markdown|txt|html?)$/.test(cleanUrl)) return "doc";
+  return null;
+}
+
+function normalizeArtifact(candidate, preferredKind) {
+  const url = candidate.url || candidate.imageUrl || candidate.videoUrl || candidate.audioUrl || candidate.fileUrl || candidate.pdfUrl || candidate.documentUrl;
+  const inferredKind = candidate.kind || artifactKindFromUrl(url) || preferredKind || "doc";
+  return {
+    kind: inferredKind,
+    status: "ready",
+    prompt: candidate.prompt || candidate.description || "",
+    imageUrl: candidate.imageUrl || (inferredKind === "image" ? url : ""),
+    videoUrl: candidate.videoUrl || (inferredKind === "video" ? url : ""),
+    audioUrl: candidate.audioUrl || (inferredKind === "music" || inferredKind === "audio" ? url : ""),
+    fileUrl: candidate.fileUrl || candidate.pdfUrl || candidate.documentUrl || (!["image", "video", "music", "audio"].includes(inferredKind) ? url : ""),
+    mimeType: candidate.mimeType || candidate.contentType || "",
+    model: candidate.model || "openclaw",
+    referenceSource: candidate.referenceSource || "openclaw_session",
+  };
 }
 
 async function withGateway(fn) {

@@ -1,6 +1,10 @@
-export async function startRealtimeCall({ onEvent, onStatus }) {
+export async function startRealtimeCall({ onEvent, onStatus, ownerProfile }) {
   onStatus("minting");
-  const tokenResponse = await fetch("/api/session", { method: "POST" });
+  const tokenResponse = await fetch("/api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ownerProfile: ownerProfile || null }),
+  });
   const tokenPayload = await tokenResponse.json();
 
   if (!tokenResponse.ok) {
@@ -35,7 +39,14 @@ export async function startRealtimeCall({ onEvent, onStatus }) {
     onEvent({ type: "webrtc.ice", state: peer.iceConnectionState });
   };
 
-  const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  let mediaStream;
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    peer.close();
+    audio.remove();
+    throw new Error(friendlyMicrophoneError(error));
+  }
   mediaStream.getTracks().forEach((track) => peer.addTrack(track, mediaStream));
 
   const channel = peer.createDataChannel("oai-events");
@@ -61,7 +72,10 @@ export async function startRealtimeCall({ onEvent, onStatus }) {
   });
 
   if (!sdpResponse.ok) {
-    throw new Error(await sdpResponse.text());
+    peer.close();
+    mediaStream.getTracks().forEach((track) => track.stop());
+    audio.remove();
+    throw new Error(`Realtime connection failed: ${await sdpResponse.text()}`);
   }
 
   await peer.setRemoteDescription({
@@ -81,4 +95,21 @@ export async function startRealtimeCall({ onEvent, onStatus }) {
       onStatus("idle");
     },
   };
+}
+
+function friendlyMicrophoneError(error) {
+  const name = error?.name || "";
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Microphone permission was blocked. Allow microphone access for this site, then tap Call again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No microphone was found. Connect or enable a microphone, then tap Call again.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The microphone is busy in another app. Close the other app or browser tab, then tap Call again.";
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser does not support microphone capture for calls.";
+  }
+  return error?.message || "Could not start the microphone.";
 }

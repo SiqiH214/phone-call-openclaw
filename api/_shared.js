@@ -7,6 +7,7 @@ export {
   ownerName,
   publicChannelConfig,
   realtimeModel,
+  realtimeTurnDetection,
   realtimeVoice,
   safetyIdentifier,
   serviceName,
