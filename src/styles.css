@@ -252,7 +252,7 @@ button { font: inherit; }
 .grain {
   position: fixed;
   inset: 0;
-  z-index: 10;
+  z-index: 0;
   pointer-events: none;
   opacity: 0.12;
   mix-blend-mode: multiply;
@@ -424,6 +424,10 @@ button { font: inherit; }
 
 .is-live .voice-avatar-scene {
   transform: none;
+}
+
+.mobile-agent-portrait {
+  display: none;
 }
 
 .agent-stage::after {
@@ -1884,9 +1888,18 @@ body {
   content: "";
 }
 
-.voice-room:not(.has-artifact) .agent-stage::before {
-  border-radius: 30px;
-}
+  .voice-room:not(.has-artifact) .agent-stage::before {
+    inset: clamp(92px, 14vh, 126px) clamp(28px, 8vw, 46px) clamp(172px, 24vh, 214px);
+    z-index: 2;
+    border: 1px solid rgba(252, 250, 247, 0.16);
+    border-radius: 34px;
+    background:
+      linear-gradient(180deg, rgba(13, 13, 13, 0), rgba(13, 13, 13, 0.22)),
+      url("/girl-agent-main.png") 48% center / cover no-repeat;
+    box-shadow:
+      0 24px 72px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
 
 .has-artifact .agent-stage {
   border-radius: var(--nova-radius-card);
@@ -2508,6 +2521,42 @@ body {
     width: 100vw;
     height: 100dvh;
     border-radius: 0;
+    background:
+      linear-gradient(180deg, rgba(13, 13, 13, 0.08), rgba(13, 13, 13, 0.56)),
+      url("/girl-agent-main.png") 48% center / cover no-repeat,
+      var(--nova-slate);
+  }
+
+  .voice-room:not(.has-artifact) .agent-scene {
+    object-position: 48% center;
+  }
+
+  .voice-room:not(.has-artifact) .mobile-agent-portrait {
+    position: fixed;
+    left: 50%;
+    top: clamp(104px, 16vh, 132px);
+    z-index: 30;
+    display: block !important;
+    width: min(74vw, 310px);
+    aspect-ratio: 0.82;
+    overflow: hidden;
+    border: 1px solid rgba(252, 250, 247, 0.18);
+    border-radius: 34px;
+    background: rgba(252, 250, 247, 0.88);
+    box-shadow:
+      0 26px 80px rgba(0, 0, 0, 0.32),
+      0 0 0 12px rgba(252, 250, 247, 0.035),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transform: translateX(-50%);
+  }
+
+  .mobile-agent-portrait img,
+  .mobile-agent-portrait video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 18%;
   }
 
   .voice-room.has-artifact {
@@ -2584,11 +2633,18 @@ body {
   }
 
   .call-controls.is-idle {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: max(28px, env(safe-area-inset-bottom));
+    z-index: 60;
     width: auto;
+    transform: translateX(-50%);
   }
 
   .call-controls.is-idle .call-button {
     min-width: 164px;
+    min-height: 52px;
   }
 
   .call-controls.is-expanded {

@@ -131,8 +131,8 @@ export function App() {
   const chatDisplayName = "47_H";
   const avatarImageUrl = server?.config?.agentAvatarImageUrl || "/girl-agent-main.png";
   const avatarVideoUrl = server?.config?.agentAvatarVideoUrl || "/girl-agent-kling.mp4";
-  const callStageImageUrl = server?.config?.callStageImageUrl || "https://cdn.pika.art/v2/files/agent/d101662d-631a-4e72-9e8d-31139993e2e3/voice-agent-47-lookfront.png";
-  const callStageVideoUrl = server?.config?.callStageVideoUrl || "https://cdn.pika.art/v2/files/agent/c8b5a21f-18d7-4303-b953-285d1cb206b1/hf_20260512_014135.mp4";
+  const callStageImageUrl = server?.config?.callStageImageUrl || "/girl-agent-main.png";
+  const callStageVideoUrl = server?.config?.callStageVideoUrl || "/girl-agent-kling.mp4";
   const avatarInitials = server?.config?.agentAvatarInitials || "AI";
   const terminalStatus = formatTerminalStatus({ callState, server, memoryReady, screenStream, cameraStream, uploadedMedia });
   const isChatView = viewMode === "chat";
@@ -1193,6 +1193,13 @@ export function App() {
                 <img className="agent-scene" src={callStageImageUrl} alt="" aria-hidden="true" />
               )}
             </picture>
+            <div className="mobile-agent-portrait" aria-hidden="true">
+              {live && callStageVideoUrl ? (
+                <video src={callStageVideoUrl} poster={callStageImageUrl} autoPlay muted loop playsInline />
+              ) : (
+                <img src={callStageImageUrl} alt="" />
+              )}
+            </div>
             {live ? <span className="speech">{speechText}</span> : null}
             <div className={`call-controls ${live ? "is-expanded" : "is-idle"}`}>
               {live ? (
