@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { loadPersona, personaInstructionBlock, personaMetadata } from "./persona.js";
 import { getAsyncArtifact, renderArtifact } from "./artifacts.js";
 import { askOpenClaw } from "./openclawBrain.js";
+import { authStatus, loginWithPassword, logout, requireAuth } from "./auth.js";
 import {
   bridgeSecret,
   buildRealtimeInstructions,
@@ -89,7 +90,21 @@ app.get("/api/persona", (_req, res) => {
   });
 });
 
+app.get("/api/auth/status", (req, res) => {
+  res.json({ ok: true, ...authStatus(req) });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  loginWithPassword(req, res, req.body?.password);
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  logout(req, res);
+});
+
 async function mintRealtimeToken(_req, res) {
+  if (!requireAuth(_req, res)) return;
+
   if (!process.env.OPENAI_API_KEY) {
     res.status(400).json({
       error: "OPENAI_API_KEY is not set on the server. Add it to your environment after rotating the exposed key.",
@@ -234,6 +249,8 @@ function cleanInline(value) {
 
 
 app.post("/api/artifacts/render", async (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   const { kind = "image", prompt = "", imageDataUrl = null, mediaDataUrl = null, mediaType = null, mediaName = null, referenceSource = null, videoModelPlan = null } = req.body || {};
   try {
     const artifact = await renderArtifact({ kind, prompt, imageDataUrl, mediaDataUrl, mediaType, mediaName, referenceSource, videoModelPlan });
@@ -244,6 +261,8 @@ app.post("/api/artifacts/render", async (req, res) => {
 });
 
 app.get("/api/artifacts/status", async (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   try {
     const artifact = await getAsyncArtifact({
       requestId: req.query?.id,
@@ -259,6 +278,8 @@ app.get("/api/artifacts/status", async (req, res) => {
 });
 
 app.post("/api/openclaw/ask", async (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   try {
     const result = await askOpenClaw(req.body || {});
     res.json({ ok: true, ...result });
@@ -291,6 +312,8 @@ app.get("/api/tools/get-time", (_req, res) => {
 });
 
 app.post("/api/tools/remember", (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   const { memory = "" } = req.body || {};
   res.json({
     ok: true,
@@ -309,6 +332,8 @@ app.post("/api/tools/web-search", (_req, res) => {
 });
 
 app.post("/api/openclaw/action", (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   const { action, prompt } = req.body || {};
   const accepted = ["code", "doc", "markdown", "html", "image", "video", "music", "diagram", "status"];
 

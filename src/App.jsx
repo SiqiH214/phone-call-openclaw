@@ -37,6 +37,7 @@ const CAMERA_FILTERS = [
 ];
 
 export function App() {
+  const [auth, setAuth] = useState({ checking: true, unlocked: false, requiresAuth: true });
   const [callState, setCallState] = useState("idle");
   const [server, setServer] = useState(null);
   const [persona, setPersona] = useState(null);
@@ -132,6 +133,14 @@ export function App() {
   const cameraFilter = CAMERA_FILTERS[cameraFilterIndex] || CAMERA_FILTERS[0];
 
   useEffect(() => {
+    fetch("/api/auth/status")
+      .then((response) => response.json())
+      .then((payload) => setAuth({ checking: false, unlocked: Boolean(payload.unlocked), requiresAuth: Boolean(payload.requiresAuth) }))
+      .catch(() => setAuth({ checking: false, unlocked: false, requiresAuth: true }));
+  }, []);
+
+  useEffect(() => {
+    if (!auth.unlocked) return;
     Promise.all([
       fetch("/api/health").then((response) => response.json()),
       fetch("/api/openclaw/status").then((response) => response.json()).catch(() => ({ ok: false })),
@@ -142,7 +151,7 @@ export function App() {
         setPersona(personaState);
       })
       .catch(() => setServer({ ok: false }));
-  }, []);
+  }, [auth.unlocked]);
 
   useEffect(() => {
     if (!["video", "music", "audio"].includes(artifact?.kind) || !artifact.requestId || !["rendering", "IN_QUEUE", "IN_PROGRESS"].includes(artifact.status)) {
@@ -1051,6 +1060,16 @@ export function App() {
 
   const hasArtifact = Boolean(artifact);
 
+  if (auth.checking || !auth.unlocked) {
+    return (
+      <PasswordGate
+        checking={auth.checking}
+        requiresAuth={auth.requiresAuth}
+        onUnlocked={() => setAuth({ checking: false, unlocked: true, requiresAuth: true })}
+      />
+    );
+  }
+
   return (
     <main className={`voice-room ${live ? "is-live" : ""} ${hasArtifact ? "has-artifact" : ""} ${isChatView ? "is-chat-view" : ""}`}>
       <div className="grain" aria-hidden="true" />
@@ -1306,6 +1325,69 @@ function ArtifactRenderer({ artifact }) {
 
   const markdown = artifact.content || artifact.prompt || "";
   return <div className="markdown-artifact" dangerouslySetInnerHTML={{ __html: markdownToHtml(markdown) }} />;
+}
+
+function PasswordGate({ checking, requiresAuth, onUnlocked }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function unlock(event) {
+    event.preventDefault();
+    if (checking || submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.unlocked) {
+        setError(payload.error || "Wrong password.");
+        return;
+      }
+      setPassword("");
+      onUnlocked();
+    } catch (loginError) {
+      setError(loginError.message || "Could not unlock.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="lock-room">
+      <div className="grain" aria-hidden="true" />
+      <div className="ambient-field" aria-hidden="true" />
+      <form className="lock-panel" onSubmit={unlock}>
+        <div className="window-lights" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+        <div className="lock-avatar" aria-hidden="true">
+          <img src="/girl-agent-main.png" alt="" />
+        </div>
+        <h1>47</h1>
+        <label htmlFor="site-password">{requiresAuth ? "password" : "unlocking"}</label>
+        <input
+          id="site-password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+          autoFocus
+          disabled={checking || submitting}
+        />
+        {error ? <p role="alert">{error}</p> : null}
+        <button type="submit" disabled={checking || submitting || !password.trim()}>
+          {checking ? "checking" : submitting ? "opening" : "enter"}
+        </button>
+      </form>
+    </main>
+  );
 }
 
 function ChatView({

@@ -37,6 +37,14 @@ OPENAI_REALTIME_VOICE=marin
 
 The server mints short-lived Realtime client secrets, so the browser never receives your standard OpenAI API key.
 
+## Optional Site Password
+
+Set `SITE_PASSWORD` to require a password before the call UI loads. The password is checked server-side and stored in an HttpOnly cookie after unlock. Sensitive routes such as Realtime token minting, OpenClaw asks, and artifact rendering also require the cookie.
+
+```bash
+SITE_PASSWORD=change-me
+```
+
 ## Wire Your OpenClaw
 
 If this site runs beside an existing OpenClaw agent, the local Express server defaults to:

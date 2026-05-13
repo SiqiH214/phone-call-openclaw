@@ -1,6 +1,9 @@
 import { getAsyncArtifact } from "../../server/artifacts.js";
+import { requireAuth } from "../../server/auth.js";
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return;
+
   const requestId = req.query?.id || req.body?.id;
   const kind = req.query?.kind || req.body?.kind || "video";
   const endpoint = req.query?.endpoint || req.body?.endpoint;

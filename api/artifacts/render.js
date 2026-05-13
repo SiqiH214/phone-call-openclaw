@@ -1,4 +1,5 @@
 import { renderArtifact } from "../../server/artifacts.js";
+import { requireAuth } from "../../server/auth.js";
 
 export const config = {
   api: {
@@ -9,6 +10,8 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return;
+
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed." });
     return;

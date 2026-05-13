@@ -1,7 +1,10 @@
 import { buildRealtimeInstructions, realtimeModel, realtimeTurnDetection, realtimeVoice, safetyIdentifier } from "../_shared.js";
 import { personaInstructionBlock } from "../_persona.js";
+import { requireAuth } from "../../server/auth.js";
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return;
+
   if (!process.env.OPENAI_API_KEY) {
     res.status(400).json({ error: "OPENAI_API_KEY is not set in Vercel." });
     return;
