@@ -1780,7 +1780,8 @@ body {
 
 .tiny-status,
 .soft-log,
-.media-presence {
+.media-presence,
+.vision-presence {
   color: rgba(252, 250, 247, 0.58);
   font-family: "Space Mono", monospace;
   font-size: 10px;
@@ -2059,6 +2060,37 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   backdrop-filter: blur(16px);
+}
+
+.vision-presence {
+  position: absolute;
+  left: 30px;
+  bottom: 28px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  max-width: min(340px, 34vw);
+  border: 1px solid rgba(252, 250, 247, 0.12);
+  border-radius: 999px;
+  padding: 9px 13px;
+  background: rgba(13, 13, 13, 0.52);
+  color: rgba(252, 250, 247, 0.58);
+  white-space: nowrap;
+  backdrop-filter: blur(16px);
+}
+
+.vision-presence::before {
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--nova-red);
+  content: "";
+}
+
+.vision-presence.is-on::before {
+  background: var(--nova-green);
+  box-shadow: 0 0 14px rgba(21, 203, 116, 0.46);
 }
 
 .call-error {
@@ -2701,6 +2733,13 @@ body {
 
   .media-presence {
     right: 18px;
+    bottom: 84px;
+    max-width: calc(100% - 36px);
+    font-size: 8px;
+  }
+
+  .vision-presence {
+    left: 18px;
     bottom: 84px;
     max-width: calc(100% - 36px);
     font-size: 8px;

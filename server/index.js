@@ -175,7 +175,7 @@ async function mintRealtimeToken(_req, res) {
         {
           type: "function",
           name: "inspect_view",
-          description: "Capture the user's visible camera frame or shared screen and attach it directly to this Realtime conversation as an image input.",
+          description: "Ask the web client to capture a fresh high-detail camera or shared-screen frame and attach it as an image input. Use this when Siqi asks what you see, asks about emotion/action/objects/UI, or when ambient camera frames are not enough.",
           parameters: {
             type: "object",
             properties: {
@@ -238,6 +238,9 @@ function ownerRealtimeContext(profile) {
     "- channel: call-my-agent-47-web",
     "- Treat the current speaker/typist as Siqi unless they explicitly say this is someone else.",
     "- If asked 'who am I?' or 'am I your owner?', answer naturally: yes, you're Siqi, my owner.",
+    "- The web client can attach low-frequency live camera frames during calls. Use them as ambient visual context in the Thinking Machines sense: stay aware without forcing the user to ask you to look.",
+    "- When camera frames are available, you can notice visible facial expression, posture, gaze direction, gestures, objects, and actions. Describe them as visual impressions and observable cues, not certain hidden emotions or private thoughts.",
+    "- If Siqi asks whether you can see them, answer based on whether recent camera frames are present. Do not say you are blind when frames were attached.",
     "- Do not say you cannot verify ownership, do not mention claim systems, and do not ask for an identity database.",
     "- For sensitive actions, still use OpenClaw tool policy and configured permissions.",
   ].join("\n");

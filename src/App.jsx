@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AtSign, Camera, ImagePlus, Maximize2, MessageCircle, Mic, MonitorDown, Move, MoveUpRight, Phone, Plus, Sparkles, ScreenShare, Send, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AtSign, Camera, Eye, EyeOff, ImagePlus, Maximize2, MessageCircle, Mic, MonitorDown, Move, MoveUpRight, Phone, Plus, Sparkles, ScreenShare, Send, SlidersHorizontal, Trash2 } from "lucide-react";
 import { startRealtimeCall } from "./realtime.js";
 
 const HISTORY_KEY = "phone-call-openclaw-session-history:v1";
@@ -27,6 +27,8 @@ const PROJECT_CHANNEL_CONTEXT = [
   "- If the user says 'this site', 'this web', or pastes call-my-agent-47.vercel.app, interpret it as this project.",
 ].join("\n");
 const DEFAULT_CAMERA_FRAME = { left: null, top: 24, width: 260, height: 195 };
+const LIVE_CAMERA_FRAME_INTERVAL_MS = 4200;
+const LIVE_CAMERA_FRAME_WIDTH = 640;
 const CAMERA_FILTERS = [
   { id: "natural", label: "natural", css: "none", canvas: "none" },
   { id: "soft", label: "soft", css: "brightness(1.08) contrast(0.92) saturate(1.08)", canvas: "brightness(1.08) contrast(0.92) saturate(1.08)" },
@@ -54,6 +56,7 @@ export function App() {
   const [viewMode, setViewMode] = useState("call");
   const [callVisualMode, setCallVisualMode] = useState("video");
   const [mobilePrimary, setMobilePrimary] = useState("artifact");
+  const [cameraVisionEnabled, setCameraVisionEnabled] = useState(true);
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const screenVideoRef = useRef(null);
@@ -64,6 +67,8 @@ export function App() {
   const ringtoneRef = useRef(null);
   const openClawSessionKeyRef = useRef(null);
   const liveAgentMessageIdRef = useRef(null);
+  const liveCameraTimerRef = useRef(null);
+  const lastCameraFrameSentAtRef = useRef(0);
   const [cameraFrame, setCameraFrame] = useState(DEFAULT_CAMERA_FRAME);
   const [cameraFilterIndex, setCameraFilterIndex] = useState(0);
   const activeSession = sessions.find((session) => session.id === activeSessionId) || sessions[0] || createSession();
@@ -203,6 +208,18 @@ export function App() {
   useEffect(() => () => stopRingtone(ringtoneRef), []);
 
   useEffect(() => {
+    stopLiveCameraVision();
+    if (!live || !cameraStream || !cameraVisionEnabled) return undefined;
+
+    sendLiveCameraFrame("Camera is now live. Use this frame as current visual context, but keep listening before responding unless the user asks about what you see.");
+    liveCameraTimerRef.current = window.setInterval(() => {
+      sendLiveCameraFrame("Live camera frame update. Treat this as ambient visual context for the ongoing call; do not mention every frame unless it is useful.");
+    }, LIVE_CAMERA_FRAME_INTERVAL_MS);
+
+    return stopLiveCameraVision;
+  }, [live, cameraStream, cameraVisionEnabled, cameraFilterIndex]);
+
+  useEffect(() => {
     if (!artifact && mobilePrimary === "artifact") {
       setMobilePrimary("agent");
     }
@@ -257,6 +274,7 @@ export function App() {
   function stopLiveCall() {
     if (!sessionRef.current) return;
     stopRingtone(ringtoneRef);
+    stopLiveCameraVision();
     sessionRef.current.stop();
     sessionRef.current = null;
   }
@@ -322,6 +340,8 @@ export function App() {
       "- preferred_name: Siqi",
       "- role: owner",
       ownerProfile?.cameraRemembered ? "- owner opted into camera context on this device. If a current camera frame is attached, treat the visible person as Siqi unless the user says otherwise." : "",
+      cameraStream && cameraVisionEnabled ? "- live camera vision is on. Low-frequency camera frames may arrive as ambient visual context during the call." : "",
+      cameraStream && cameraVisionEnabled ? "- You may respond to visible expression, posture, gestures, gaze direction, and actions when relevant. Phrase emotion sensing as visual impressions, not certainty or mind reading." : "",
       "Do not discuss owner verification, channel metadata, claims, databases, or architecture unless Siqi explicitly asks. Just talk to Siqi as 47.",
       PROJECT_CHANNEL_CONTEXT,
       "The OpenClaw workspace persona files such as IDENTITY.md, SOUL.md, STYLE.md, USER.md, and MEMORY.md are owner-editable workspace context when the owner explicitly asks to update memory/profile. Do not describe them as immutable platform system prompts.",
@@ -817,7 +837,7 @@ export function App() {
       return;
     }
 
-    sendImageToRealtime(screenshot, args.question || "Look at the current camera or screen frame and answer naturally.");
+    sendImageToRealtime(screenshot, args.question || "Look at the current camera or screen frame and answer naturally.", "auto");
     sendToolResult(
       event.call_id,
       { ok: true, status: "image_input_attached" },
@@ -829,7 +849,35 @@ export function App() {
     );
   }
 
-  function sendImageToRealtime(imageUrl, question) {
+  function stopLiveCameraVision() {
+    if (liveCameraTimerRef.current) {
+      window.clearInterval(liveCameraTimerRef.current);
+      liveCameraTimerRef.current = null;
+    }
+  }
+
+  async function sendLiveCameraFrame(question) {
+    const channel = sessionRef.current?.channel;
+    if (!channel || channel.readyState !== "open" || !cameraVideoRef.current) return;
+
+    const now = Date.now();
+    if (now - lastCameraFrameSentAtRef.current < LIVE_CAMERA_FRAME_INTERVAL_MS - 500) return;
+    lastCameraFrameSentAtRef.current = now;
+
+    try {
+      const frame = await captureFrame(cameraVideoRef.current, {
+        maxWidth: LIVE_CAMERA_FRAME_WIDTH,
+        quality: 0.48,
+      });
+      if (!frame) return;
+      sendImageToRealtime(frame, question || "Live camera frame update.", "low");
+      setEvents((items) => [{ type: "vision.live", message: "camera frame sent" }, ...items].slice(0, 3));
+    } catch (error) {
+      setEvents((items) => [{ type: "vision.error", message: error.message }, ...items].slice(0, 3));
+    }
+  }
+
+  function sendImageToRealtime(imageUrl, question, detail = "auto") {
     const channel = sessionRef.current?.channel;
     if (!channel || channel.readyState !== "open" || !imageUrl) return;
 
@@ -846,7 +894,7 @@ export function App() {
           {
             type: "input_image",
             image_url: imageUrl,
-            detail: "auto",
+            detail,
           },
         ],
       },
@@ -1051,12 +1099,13 @@ export function App() {
     return captureFrame(screenVideoRef.current);
   }
 
-  async function captureFrame(video) {
+  async function captureFrame(video, options = {}) {
     if (!video) return null;
     await waitForVideoFrame(video);
     if (!video.videoWidth || !video.videoHeight) return null;
     const canvas = document.createElement("canvas");
-    const maxWidth = 1280;
+    const maxWidth = options.maxWidth || 1280;
+    const quality = options.quality || 0.72;
     const scale = Math.min(1, maxWidth / video.videoWidth);
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);
@@ -1066,7 +1115,7 @@ export function App() {
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     context.filter = "none";
-    return canvas.toDataURL("image/jpeg", 0.72);
+    return canvas.toDataURL("image/jpeg", quality);
   }
 
   const hasArtifact = Boolean(artifact);
@@ -1154,6 +1203,9 @@ export function App() {
                   <button className={`media-pill ${cameraStream ? "is-active" : ""}`} onClick={toggleCamera} aria-label={cameraStream ? "Turn camera off" : "Open camera"}>
                     <Camera size={18} strokeWidth={2.2} />
                   </button>
+                  <button className={`media-pill ${cameraVisionEnabled && cameraStream ? "is-active" : ""}`} onClick={() => setCameraVisionEnabled((enabled) => !enabled)} aria-label={cameraVisionEnabled ? "Pause agent camera vision" : "Resume agent camera vision"} disabled={!cameraStream}>
+                    {cameraVisionEnabled ? <Eye size={18} strokeWidth={2.2} /> : <EyeOff size={18} strokeWidth={2.2} />}
+                  </button>
                   <button className="media-pill" onClick={(event) => { event.stopPropagation(); uploadInputRef.current?.click(); }} aria-label="Send media">
                     <ImagePlus size={18} strokeWidth={2.2} />
                   </button>
@@ -1172,6 +1224,11 @@ export function App() {
             </div>
             {callError ? <div className="call-error" role="status">{friendlyCallError(callError)}</div> : null}
             {uploadedMedia ? <div className="media-presence">{uploadedMedia.name}</div> : null}
+            {live && cameraStream ? (
+              <div className={`vision-presence ${cameraVisionEnabled ? "is-on" : ""}`}>
+                {cameraVisionEnabled ? "47 can see camera" : "camera vision paused"}
+              </div>
+            ) : null}
             {live ? (
               <div className="voice-activity scene-activity" aria-hidden="true">
                 <i />
@@ -1185,8 +1242,9 @@ export function App() {
               <div className="camera-window" style={cameraFrameStyle(cameraFrame)} aria-label="Your camera preview">
                 <div className="camera-titlebar" onPointerDown={startCameraDrag}>
                   <span><Move size={11} strokeWidth={2.2} /></span>
-                  <b>you</b>
+                  <b>{live && cameraVisionEnabled ? "live vision" : "you"}</b>
                   <div className="camera-actions">
+                    <button onClick={(event) => { event.stopPropagation(); setCameraVisionEnabled((enabled) => !enabled); }} aria-label={cameraVisionEnabled ? "Pause agent camera vision" : "Resume agent camera vision"} title={cameraVisionEnabled ? "Agent can see camera" : "Agent camera vision paused"}>{cameraVisionEnabled ? <Eye size={11} strokeWidth={2.4} /> : <EyeOff size={11} strokeWidth={2.4} />}</button>
                     <button onClick={cycleCameraFilter} aria-label={`Camera filter: ${cameraFilter.label}`} title={`Filter: ${cameraFilter.label}`}><Sparkles size={11} strokeWidth={2.4} /></button>
                     <button onClick={dockCameraTopRight} aria-label="Move camera preview to top right"><MoveUpRight size={11} strokeWidth={2.4} /></button>
                     <button onClick={enlargeCameraFrame} aria-label="Enlarge camera preview"><Maximize2 size={11} strokeWidth={2.4} /></button>
