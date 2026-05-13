@@ -1884,19 +1884,6 @@ body {
   content: "";
 }
 
-  .voice-room:not(.has-artifact) .agent-stage::before {
-    inset: clamp(92px, 14vh, 126px) clamp(28px, 8vw, 46px) clamp(172px, 24vh, 214px);
-    z-index: 2;
-    border: 1px solid rgba(252, 250, 247, 0.16);
-    border-radius: 34px;
-    background:
-      linear-gradient(180deg, rgba(13, 13, 13, 0), rgba(13, 13, 13, 0.22)),
-      url("/girl-agent-main.png") 48% center / cover no-repeat;
-    box-shadow:
-      0 24px 72px rgba(0, 0, 0, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  }
-
 .has-artifact .agent-stage {
   border-radius: var(--nova-radius-card);
   box-shadow: var(--nova-shadow), inset 0 0 105px 15px rgba(0, 0, 0, 0.22);
