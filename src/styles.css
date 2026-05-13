@@ -426,10 +426,6 @@ button { font: inherit; }
   transform: none;
 }
 
-.mobile-agent-portrait {
-  display: none;
-}
-
 .agent-stage::after {
   position: absolute;
   inset: 0;
@@ -2518,9 +2514,15 @@ body {
   }
 
   .voice-room:not(.has-artifact) .agent-stage {
-    width: 100vw;
-    height: 100dvh;
-    border-radius: 0;
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: calc(max(64px, env(safe-area-inset-top)) + 8px);
+    bottom: calc(max(82px, env(safe-area-inset-bottom)) + 8px);
+    z-index: 1;
+    width: auto;
+    height: auto;
+    border-radius: 22px;
     background:
       linear-gradient(180deg, rgba(13, 13, 13, 0.08), rgba(13, 13, 13, 0.56)),
       url("/girl-agent-main.png") 48% center / cover no-repeat,
@@ -2528,35 +2530,49 @@ body {
   }
 
   .voice-room:not(.has-artifact) .agent-scene {
-    object-position: 48% center;
-  }
-
-  .voice-room:not(.has-artifact) .mobile-agent-portrait {
-    position: fixed;
-    left: 50%;
-    top: clamp(104px, 16vh, 132px);
-    z-index: 30;
-    display: block !important;
-    width: min(74vw, 310px);
-    aspect-ratio: 0.82;
-    overflow: hidden;
-    border: 1px solid rgba(252, 250, 247, 0.18);
-    border-radius: 34px;
-    background: rgba(252, 250, 247, 0.88);
-    box-shadow:
-      0 26px 80px rgba(0, 0, 0, 0.32),
-      0 0 0 12px rgba(252, 250, 247, 0.035),
-      inset 0 1px 0 rgba(255, 255, 255, 0.22);
-    transform: translateX(-50%);
-  }
-
-  .mobile-agent-portrait img,
-  .mobile-agent-portrait video {
-    display: block;
-    width: 100%;
-    height: 100%;
     object-fit: cover;
-    object-position: center 18%;
+    object-position: center 30%;
+  }
+
+  .voice-room:not(.has-artifact) .agent-stage::before {
+    inset: 10px;
+    z-index: 2;
+    border-radius: 18px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .voice-room:not(.has-artifact) .camera-window {
+    position: fixed !important;
+    left: auto !important;
+    right: 16px !important;
+    top: calc(max(90px, env(safe-area-inset-top)) + 10px) !important;
+    z-index: 52;
+    width: min(34vw, 138px) !important;
+    height: min(46vw, 184px) !important;
+    min-width: 104px;
+    min-height: 138px;
+    border-radius: 18px;
+    transform: none !important;
+    box-shadow: 0 18px 58px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+
+  .voice-room:not(.has-artifact) .camera-titlebar {
+    height: 28px;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    padding-inline: 6px;
+  }
+
+  .voice-room:not(.has-artifact) .camera-titlebar button:not(:first-child):not(:last-child),
+  .voice-room:not(.has-artifact) .camera-resize,
+  .voice-room:not(.has-artifact) .camera-filter-label,
+  .voice-room:not(.has-artifact) .camera-heart-layer {
+    display: none;
+  }
+
+  .voice-room:not(.has-artifact) .camera-window video {
+    inset: 28px 0 0;
+    height: calc(100% - 28px);
   }
 
   .voice-room.has-artifact {

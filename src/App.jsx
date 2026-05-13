@@ -1193,13 +1193,6 @@ export function App() {
                 <img className="agent-scene" src={callStageImageUrl} alt="" aria-hidden="true" />
               )}
             </picture>
-            <div className="mobile-agent-portrait" aria-hidden="true">
-              {live && callStageVideoUrl ? (
-                <video src={callStageVideoUrl} poster={callStageImageUrl} autoPlay muted loop playsInline />
-              ) : (
-                <img src={callStageImageUrl} alt="" />
-              )}
-            </div>
             {live ? <span className="speech">{speechText}</span> : null}
             <div className={`call-controls ${live ? "is-expanded" : "is-idle"}`}>
               {live ? (
