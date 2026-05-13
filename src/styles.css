@@ -1307,7 +1307,7 @@ button { font: inherit; }
   top: 56%;
   z-index: 11;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   width: min(680px, calc(100vw - 44px));
   max-height: min(680px, 72vh);
   overflow: hidden;
@@ -1443,6 +1443,8 @@ button { font: inherit; }
 .artifact-sheet.is-collapsed .artifact-actions button + button,
 .artifact-sheet.is-collapsed .artifact-body,
 .artifact-sheet.is-collapsed .artifact-menubar,
+.artifact-sheet.is-collapsed .artifact-presencebar,
+.artifact-sheet.is-collapsed .artifact-sessionbar,
 .artifact-sheet.is-collapsed .history-dock {
   display: none;
 }
@@ -2175,6 +2177,77 @@ body {
   text-transform: uppercase;
 }
 
+.artifact-presencebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(34, 34, 34, 0.54), rgba(13, 13, 13, 0.42)),
+    url("/nova-assets/noise.webp");
+  color: rgba(252, 250, 247, 0.66);
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.artifact-presencebar span,
+.artifact-presencebar button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border: 1px solid rgba(252, 250, 247, 0.1);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(252, 250, 247, 0.72);
+}
+
+.artifact-presencebar span:first-child {
+  margin-right: auto;
+}
+
+.artifact-presencebar span:first-child::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--nova-green);
+  box-shadow: 0 0 14px rgba(21, 203, 116, 0.44);
+}
+
+.artifact-presencebar span:first-child.is-live::before {
+  background: var(--nova-red);
+  box-shadow: 0 0 16px rgba(255, 76, 98, 0.5);
+}
+
+.artifact-presencebar button {
+  gap: 6px;
+  cursor: pointer;
+}
+
+.artifact-presencebar button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--nova-eggshell);
+}
+
+.artifact-presencebar button.is-active {
+  border-color: rgba(207, 195, 255, 0.36);
+  background: rgba(207, 195, 255, 0.18);
+  color: var(--nova-eggshell);
+}
+
+.artifact-presencebar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .artifact-sessionbar label {
   display: flex;
   flex: 1 1 auto;
@@ -2420,6 +2493,10 @@ body {
     display: none;
   }
 
+  .voice-room.has-artifact.artifact-collapsed .agent-stage {
+    display: block;
+  }
+
   .has-artifact .agent-stage::before {
     border-radius: 20px;
   }
@@ -2646,7 +2723,7 @@ body {
 
   .has-artifact .artifact-sheet {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     position: relative;
     left: auto;
     top: auto;
@@ -2657,6 +2734,18 @@ body {
     max-height: none;
     border-radius: 18px;
     transform: none;
+  }
+
+  .has-artifact.artifact-collapsed .artifact-sheet {
+    position: fixed;
+    left: 50%;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 45;
+    width: min(260px, calc(100vw - 28px));
+    height: 44px;
+    min-height: 0;
+    border-radius: 999px;
+    transform: translateX(-50%);
   }
 
   .has-artifact .artifact-body {
@@ -2702,6 +2791,31 @@ body {
 
   .artifact-menubar span:last-child {
     margin-left: auto;
+  }
+
+  .artifact-presencebar {
+    gap: 6px;
+    min-height: 40px;
+    overflow-x: auto;
+    padding: 6px 8px;
+    scrollbar-width: none;
+  }
+
+  .artifact-presencebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .artifact-presencebar span,
+  .artifact-presencebar button {
+    min-height: 28px;
+    padding: 6px 9px;
+    font-size: 8px;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+  }
+
+  .artifact-presencebar span:first-child {
+    margin-right: 0;
   }
 
   .has-artifact .history-dock {
@@ -2759,8 +2873,170 @@ body {
     height: 14px;
   }
 
-  .has-artifact .camera-window {
+  .voice-room.has-artifact:not(.artifact-collapsed) {
+    display: block;
+    padding: 0;
+  }
+
+  .voice-room.has-artifact:not(.artifact-collapsed) .agent-stage,
+  .voice-room.has-artifact:not(.artifact-collapsed) .artifact-sheet,
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-window {
+    position: fixed;
+    z-index: 12;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 18px;
+    transform: none;
+    transition: inset 220ms ease, width 220ms ease, height 220ms ease, border-radius 220ms ease, opacity 180ms ease;
+  }
+
+  .voice-room.has-artifact:not(.artifact-collapsed) .agent-stage {
+    display: block;
+  }
+
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-window {
+    display: block;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    width: auto;
+    height: auto;
+    box-shadow: var(--nova-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-titlebar {
+    height: 28px;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+  }
+
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-titlebar button:not(:last-child),
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-resize,
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-filter-label,
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-heart-layer {
     display: none;
+  }
+
+  .voice-room.has-artifact:not(.artifact-collapsed) .camera-window video {
+    inset: 28px 0 0;
+    height: calc(100% - 28px);
+  }
+
+  .mobile-primary-artifact:not(.artifact-collapsed) .artifact-sheet,
+  .mobile-primary-agent:not(.artifact-collapsed) .agent-stage,
+  .mobile-primary-camera:not(.artifact-collapsed) .camera-window {
+    left: 8px;
+    right: 8px;
+    top: max(8px, env(safe-area-inset-top));
+    bottom: calc(170px + env(safe-area-inset-bottom));
+    z-index: 18;
+    width: auto;
+    height: auto;
+    max-height: none;
+  }
+
+  .mobile-primary-artifact:not(.artifact-collapsed) .agent-stage,
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet,
+  .mobile-primary-camera:not(.artifact-collapsed) .agent-stage {
+    left: 8px;
+    right: auto;
+    top: auto;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    width: calc(50vw - 12px);
+    height: 86px;
+    z-index: 16;
+  }
+
+  .mobile-primary-artifact:not(.artifact-collapsed) .camera-window,
+  .mobile-primary-agent:not(.artifact-collapsed) .camera-window,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet {
+    left: calc(50vw + 4px);
+    right: 8px;
+    top: auto;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    width: calc(50vw - 12px);
+    height: 86px;
+    z-index: 16;
+  }
+
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    max-height: none;
+  }
+
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .artifact-menubar,
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .artifact-presencebar,
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .artifact-sessionbar,
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .history-dock,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .artifact-menubar,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .artifact-presencebar,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .artifact-sessionbar,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .history-dock {
+    display: none;
+  }
+
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .artifact-titlebar,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .artifact-titlebar {
+    min-height: 28px;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .artifact-actions,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .artifact-actions {
+    display: none;
+  }
+
+  .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet .artifact-body,
+  .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet .artifact-body {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mobile-primary-artifact:not(.artifact-collapsed) .agent-stage .call-controls,
+  .mobile-primary-camera:not(.artifact-collapsed) .agent-stage .call-controls {
+    display: none;
+  }
+
+  .mobile-primary-artifact:not(.artifact-collapsed) .agent-scene,
+  .mobile-primary-agent:not(.artifact-collapsed) .agent-scene,
+  .mobile-primary-camera:not(.artifact-collapsed) .agent-scene {
+    border-radius: inherit;
+  }
+
+  @media (orientation: landscape) {
+    .mobile-primary-artifact:not(.artifact-collapsed) .artifact-sheet,
+    .mobile-primary-agent:not(.artifact-collapsed) .agent-stage,
+    .mobile-primary-camera:not(.artifact-collapsed) .camera-window {
+      left: 8px;
+      right: 124px;
+      top: max(8px, env(safe-area-inset-top));
+      bottom: calc(66px + env(safe-area-inset-bottom));
+    }
+
+    .mobile-primary-artifact:not(.artifact-collapsed) .agent-stage,
+    .mobile-primary-agent:not(.artifact-collapsed) .artifact-sheet,
+    .mobile-primary-camera:not(.artifact-collapsed) .agent-stage {
+      left: auto;
+      right: 8px;
+      top: max(8px, env(safe-area-inset-top));
+      bottom: auto;
+      width: 108px;
+      height: calc((100dvh - 86px - env(safe-area-inset-bottom)) / 2);
+    }
+
+    .mobile-primary-artifact:not(.artifact-collapsed) .camera-window,
+    .mobile-primary-agent:not(.artifact-collapsed) .camera-window,
+    .mobile-primary-camera:not(.artifact-collapsed) .artifact-sheet {
+      left: auto;
+      right: 8px;
+      top: calc(max(8px, env(safe-area-inset-top)) + ((100dvh - 86px - env(safe-area-inset-bottom)) / 2) + 8px);
+      bottom: auto;
+      width: 108px;
+      height: calc((100dvh - 86px - env(safe-area-inset-bottom)) / 2);
+    }
   }
 
   .loader {

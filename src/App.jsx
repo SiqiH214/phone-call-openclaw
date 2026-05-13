@@ -53,6 +53,7 @@ export function App() {
   const [uploadedMedia, setUploadedMedia] = useState(null);
   const [viewMode, setViewMode] = useState("call");
   const [callVisualMode, setCallVisualMode] = useState("video");
+  const [mobilePrimary, setMobilePrimary] = useState("artifact");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const screenVideoRef = useRef(null);
@@ -200,6 +201,15 @@ export function App() {
   }, [callState]);
 
   useEffect(() => () => stopRingtone(ringtoneRef), []);
+
+  useEffect(() => {
+    if (!artifact && mobilePrimary === "artifact") {
+      setMobilePrimary("agent");
+    }
+    if (!cameraStream && mobilePrimary === "camera") {
+      setMobilePrimary(artifact ? "artifact" : "agent");
+    }
+  }, [artifact, cameraStream, mobilePrimary]);
 
   async function toggleCall() {
     if (sessionRef.current) {
@@ -353,6 +363,7 @@ export function App() {
     const artifactTaskKey = newArtifactTaskKey(kind);
     setArtifact({ kind, status: "loading", prompt, createdAt: Date.now() });
     setArtifactCollapsed(false);
+    setMobilePrimary("artifact");
 
     try {
       const visualReference = await captureArtifactReference(kind);
@@ -1059,6 +1070,7 @@ export function App() {
   }
 
   const hasArtifact = Boolean(artifact);
+  const visibleArtifactCount = sessionHistory.length + (artifact ? 1 : 0);
 
   if (auth.checking || !auth.unlocked) {
     return (
@@ -1071,7 +1083,7 @@ export function App() {
   }
 
   return (
-    <main className={`voice-room ${live ? "is-live" : ""} ${hasArtifact ? "has-artifact" : ""} ${isChatView ? "is-chat-view" : ""}`}>
+    <main className={`voice-room ${live ? "is-live" : ""} ${hasArtifact ? "has-artifact" : ""} ${artifactCollapsed ? "artifact-collapsed" : ""} mobile-primary-${mobilePrimary} ${isChatView ? "is-chat-view" : ""}`}>
       <div className="grain" aria-hidden="true" />
       <div className="ambient-field" aria-hidden="true" />
 
@@ -1222,6 +1234,28 @@ export function App() {
             <span>{artifact.kind || "doc"}</span>
             <span>{artifact.status || "ready"}</span>
             <span>{sessionHistory.length} saved</span>
+          </div>
+          <div className="artifact-presencebar" aria-label="Live collaboration controls">
+            <span className={live ? "is-live" : ""}>{live ? "live now" : "ready"}</span>
+            <button onClick={() => { setViewMode("call"); setArtifactCollapsed(true); }} type="button">
+              <Phone size={13} strokeWidth={2.4} />
+              call
+            </button>
+            <button onClick={() => { setViewMode("chat"); setArtifactCollapsed(true); }} type="button">
+              <MessageCircle size={13} strokeWidth={2.4} />
+              chat
+            </button>
+            <button className={mobilePrimary === "artifact" ? "is-active" : ""} onClick={() => { setMobilePrimary("artifact"); setArtifactCollapsed(false); }} type="button">
+              pin artifact
+            </button>
+            <button className={mobilePrimary === "agent" ? "is-active" : ""} onClick={() => { setMobilePrimary("agent"); setArtifactCollapsed(false); setViewMode("call"); }} type="button">
+              pin 47
+            </button>
+            <button className={mobilePrimary === "camera" ? "is-active" : ""} onClick={() => { setMobilePrimary("camera"); setArtifactCollapsed(false); }} type="button" disabled={!cameraStream}>
+              pin cam
+            </button>
+            <span>{sessions.length} sessions</span>
+            <span>{visibleArtifactCount} artifacts</span>
           </div>
           <div className="artifact-sessionbar" aria-label="Session controls">
             <label>
