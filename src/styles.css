@@ -1190,6 +1190,8 @@ button { font: inherit; }
   left: 50%;
   top: 56%;
   z-index: 11;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   width: min(680px, calc(100vw - 44px));
   max-height: min(680px, 72vh);
   overflow: hidden;
@@ -1340,7 +1342,7 @@ button { font: inherit; }
 
 .artifact-body {
   min-height: 240px;
-  height: calc(100% - 156px);
+  height: auto;
   overflow: auto;
   background: #fbfaf7;
 }
@@ -2268,9 +2270,16 @@ body {
 }
 
 @media (max-width: 620px) {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
   .agent-stage {
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     aspect-ratio: auto;
   }
 
@@ -2281,28 +2290,18 @@ body {
   }
 
   .voice-room.has-artifact {
-    display: block;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
     height: 100dvh;
     min-height: 100dvh;
-    padding: max(10px, env(safe-area-inset-top)) 10px calc(82px + env(safe-area-inset-bottom));
+    padding: max(8px, env(safe-area-inset-top)) 8px calc(74px + env(safe-area-inset-bottom));
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
   }
 
   .has-artifact .agent-stage {
-    position: fixed;
-    top: max(12px, env(safe-area-inset-top));
-    right: 10px;
-    left: auto;
-    z-index: 20;
-    width: min(42vw, 176px);
-    height: 132px;
-    min-height: 0;
-    aspect-ratio: auto;
-    border-radius: 22px;
-    overflow: hidden;
-    border-color: rgba(255, 255, 255, 0.16);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+    display: none;
   }
 
   .has-artifact .agent-stage::before {
@@ -2373,7 +2372,7 @@ body {
     right: auto;
     bottom: max(10px, env(safe-area-inset-bottom));
     z-index: 40;
-    gap: 6px;
+    gap: 5px;
     width: calc(100vw - 16px);
     max-width: 430px;
     justify-content: center;
@@ -2387,17 +2386,17 @@ body {
   .call-controls.is-expanded .call-button {
     min-width: 0;
     min-height: 46px;
-    flex: 1 1 110px;
-    max-width: 132px;
+    flex: 1 1 104px;
+    max-width: 126px;
     font-size: 13px;
   }
 
   .media-pill {
     flex: 0 0 auto;
-    width: 46px;
-    min-width: 46px;
-    height: 46px;
-    min-height: 46px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
     padding: 0;
     font-size: 8px;
     letter-spacing: 0.04em;
@@ -2474,15 +2473,7 @@ body {
   }
 
   .voice-room.has-artifact .tiny-status {
-    top: max(10px, env(safe-area-inset-top));
-    right: 10px;
-    left: auto;
-    z-index: 60;
-    width: auto;
-    max-width: calc(100vw - 112px);
-    gap: 7px;
-    justify-content: flex-end;
-    padding: 6px 8px;
+    display: none;
   }
 
   .tiny-status::-webkit-scrollbar {
@@ -2531,39 +2522,94 @@ body {
   }
 
   .artifact-sheet {
-    top: 57%;
-    width: min(420px, calc(100vw - 24px));
-    max-height: 68vh;
+    top: auto;
+    width: 100%;
+    max-height: none;
     border-radius: 20px;
   }
 
   .has-artifact .artifact-sheet {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     position: relative;
     left: auto;
     top: auto;
     z-index: 1;
     width: 100%;
-    min-height: min(540px, calc(100dvh - 102px - env(safe-area-inset-bottom)));
-    height: calc(100dvh - 102px - env(safe-area-inset-bottom));
+    min-height: 0;
+    height: 100%;
     max-height: none;
-    border-radius: 22px;
+    border-radius: 18px;
     transform: none;
   }
 
   .has-artifact .artifact-body {
     min-height: 0;
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .artifact-titlebar {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    min-height: 38px;
+  }
+
+  .window-lights {
+    gap: 5px;
+    padding-left: 12px;
+  }
+
+  .window-lights i {
+    width: 8px;
+    height: 8px;
+  }
+
+  .artifact-title {
+    justify-content: flex-start;
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  .artifact-actions button {
+    padding: 0 9px;
+    font-size: 8px;
+    letter-spacing: 0.09em;
+  }
+
+  .artifact-menubar {
+    min-height: 28px;
+    gap: 10px;
+    padding: 0 10px;
+    font-size: 8px;
+    letter-spacing: 0.11em;
+  }
+
+  .artifact-menubar span:last-child {
+    margin-left: auto;
   }
 
   .has-artifact .history-dock {
     display: flex;
-    height: 60px;
+    height: 64px;
     padding: 6px 8px;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
   }
 
   .has-artifact .history-dock button {
-    flex-basis: 128px;
+    flex-basis: 132px;
     padding: 7px 9px;
+    border-radius: 10px;
+    scroll-snap-align: start;
+  }
+
+  .history-dock span {
+    margin-bottom: 3px;
+    font-size: 7px;
+  }
+
+  .history-dock b {
+    font-size: 10px;
   }
 
   .artifact-sessionbar {
@@ -2598,16 +2644,7 @@ body {
   }
 
   .has-artifact .camera-window {
-    position: fixed;
-    top: max(12px, env(safe-area-inset-top)) !important;
-    left: 10px !important;
-    right: auto !important;
-    z-index: 30;
-    width: min(34vw, 132px) !important;
-    height: 98px !important;
-    min-width: 112px;
-    min-height: 84px;
-    border-radius: 18px;
+    display: none;
   }
 
   .loader {
@@ -2617,5 +2654,75 @@ body {
   .loader span {
     width: 72px;
     height: 60px;
+  }
+}
+
+@media (max-width: 390px) {
+  .tiny-status {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    gap: 7px;
+    padding: 6px 8px;
+  }
+
+  .tiny-status > span {
+    max-width: 118px;
+  }
+
+  .session-switcher > span {
+    display: none;
+  }
+
+  .session-switcher select {
+    max-width: 122px;
+    height: 26px;
+    font-size: 8px;
+  }
+
+  .tiny-status .icon-status-button {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+  }
+
+  .call-controls.is-expanded {
+    width: calc(100vw - 10px);
+    gap: 4px;
+    padding: 5px;
+  }
+
+  .call-controls.is-expanded .call-button {
+    flex-basis: 92px;
+    max-width: 112px;
+    font-size: 12px;
+  }
+
+  .media-pill {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .media-pill svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .artifact-actions button {
+    padding: 0 7px;
+  }
+
+  .artifact-sessionbar select {
+    font-size: 8px;
+  }
+
+  .has-artifact .history-dock {
+    height: 58px;
+  }
+
+  .has-artifact .history-dock button {
+    flex-basis: 116px;
   }
 }
